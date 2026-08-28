@@ -1,0 +1,111 @@
+<UserControl x:Class="KyeForge.App.Views.DevicesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+            <Border x:Name="DeviceNotice" Visibility="Collapsed" Margin="0,0,0,12"
+                    CornerRadius="12" Background="{DynamicResource BgElevatedBrush}" BorderBrush="{DynamicResource BorderStrongBrush}"
+                    BorderThickness="1" Padding="14,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="15"
+                               Foreground="{DynamicResource AccentBrush}" Margin="0,1,10,0" />
+                    <TextBlock x:Name="DeviceNoticeText" Grid.Column="1" Style="{StaticResource SubText}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </Border>
+
+            <!-- Intro -->
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_devices_intro_title}" />
+                    <TextBlock Style="{StaticResource SubText}" Margin="0,6,0,14"
+                               Text="{DynamicResource t_devices_intro_text}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <Button x:Name="BtnRefresh" Style="{StaticResource PrimaryButton}"
+                                Content="{DynamicResource t_devices_btn_scan}"
+                                Margin="0,0,12,0" Click="BtnRefresh_Click" />
+                        <Button x:Name="BtnLoadConfig" Style="{StaticResource SecondaryButton}"
+                                Content="{DynamicResource t_devices_btn_load}"
+                                Click="BtnLoadConfig_Click" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Device list -->
+            <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_devices_detected}" Margin="4,0,0,8" />
+            <ItemsControl x:Name="DeviceList">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,0,8" CornerRadius="12" Background="{DynamicResource BgCardBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="16,12"
+                                Cursor="Hand">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{DynamicResource BgCardBrush}" />
+                                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="Background" Value="{DynamicResource BgElevatedBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                            <Setter Property="BorderThickness" Value="1.5" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Border.InputBindings>
+                                <MouseBinding MouseAction="LeftClick" Command="{Binding Select}" />
+                            </Border.InputBindings>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BgElevatedBrush}"
+                                        VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE8AB;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                               Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding Meta}" FontSize="11.5"
+                                               Foreground="{DynamicResource TextMutedBrush}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="&#xE10B;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                           Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"
+                                           VerticalAlignment="Center" Visibility="{Binding IsSelected, Converter={StaticResource BoolToVis}}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <TextBlock x:Name="NoDevices" Style="{StaticResource SubText}"
+                       Text="{DynamicResource t_devices_none}" TextWrapping="Wrap"
+                       Margin="4,8,0,16" />
+
+            <!-- Config info -->
+            <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_devices_loaded}" Margin="4,16,0,8" />
+            <Border x:Name="ConfigInfo" Style="{StaticResource CardStyle}" Visibility="Collapsed">
+                <StackPanel>
+                    <TextBlock x:Name="ConfigName" Style="{StaticResource CardHeader}" />
+                    <TextBlock x:Name="ConfigPath" Style="{StaticResource MutedText}" Margin="0,4,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <TextBlock x:Name="ConfigVidPid" Style="{StaticResource SubText}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

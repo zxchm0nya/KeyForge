@@ -1,0 +1,156 @@
+<UserControl x:Class="KyeForge.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <!-- Language -->
+            <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_language}" Margin="4,0,0,8" />
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                <Grid>
+                    <TextBlock Style="{StaticResource SubText}" VerticalAlignment="Center">
+                        <Run Text="&#xE8D2;" FontFamily="Segoe MDL2 Assets" />
+                        <Run Text="  " />
+                        <Run Text="{DynamicResource t_settings_language}" />
+                    </TextBlock>
+                    <ComboBox x:Name="LanguageCombo" Style="{StaticResource AppComboBox}" Width="220"
+                              HorizontalAlignment="Right" SelectionChanged="LanguageCombo_SelectionChanged" />
+                </Grid>
+            </Border>
+
+            <!-- Preferences -->
+            <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_preferences}" Margin="4,0,0,8" />
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                <StackPanel>
+                    <CheckBox x:Name="ChkRememberDevice" Style="{StaticResource AppToggle}"
+                              Content="{DynamicResource t_settings_remember_kb}"
+                              Checked="ChkRememberDevice_Changed" Unchecked="ChkRememberDevice_Changed" />
+                    <TextBlock Style="{StaticResource MutedText}" Margin="58,-2,0,14"
+                               Text="{DynamicResource t_settings_remember_kb_hint}" TextWrapping="Wrap" />
+
+                    <CheckBox x:Name="ChkRememberConfig" Style="{StaticResource AppToggle}"
+                              Content="{DynamicResource t_settings_remember_cfg}"
+                              Checked="ChkRememberConfig_Changed" Unchecked="ChkRememberConfig_Changed" />
+                    <TextBlock Style="{StaticResource MutedText}" Margin="58,-2,0,0"
+                               Text="{DynamicResource t_settings_remember_cfg_hint}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- Customization -->
+            <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_custom}" Margin="4,0,0,8" />
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                <StackPanel>
+                    <!-- Accent presets -->
+                    <TextBlock Style="{StaticResource CardHeader}" Text="{DynamicResource t_custom_theme}" />
+                    <StackPanel x:Name="PresetRow" Orientation="Horizontal" Margin="0,10,0,4" />
+
+                    <!-- Color slots -->
+                    <TextBlock Style="{StaticResource CardHeader}" Text="{DynamicResource t_custom_colors}" Margin="0,16,0,0" />
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="34" />
+                            <RowDefinition Height="34" />
+                            <RowDefinition Height="34" />
+                            <RowDefinition Height="34" />
+                            <RowDefinition Height="34" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="{DynamicResource t_custom_accent}" Style="{StaticResource SubText}" VerticalAlignment="Center" />
+                        <Border x:Name="AccentChip" Grid.Column="1" Width="46" Height="24" CornerRadius="8"
+                                HorizontalAlignment="Left" Cursor="Hand" MouseLeftButtonDown="Chip_Click" Tag="accent" />
+
+                        <Grid Grid.Row="1">
+                            <TextBlock Text="{DynamicResource t_custom_bg}" Style="{StaticResource SubText}" VerticalAlignment="Center" />
+                        </Grid>
+                        <Border x:Name="BgChip" Grid.Row="1" Grid.Column="1" Width="46" Height="24" CornerRadius="8"
+                                HorizontalAlignment="Left" Cursor="Hand" MouseLeftButtonDown="Chip_Click" Tag="bg" />
+
+                        <Grid Grid.Row="2">
+                            <TextBlock Text="{DynamicResource t_custom_panel}" Style="{StaticResource SubText}" VerticalAlignment="Center" />
+                        </Grid>
+                        <Border x:Name="PanelChip" Grid.Row="2" Grid.Column="1" Width="46" Height="24" CornerRadius="8"
+                                HorizontalAlignment="Left" Cursor="Hand" MouseLeftButtonDown="Chip_Click" Tag="panel" />
+
+                        <Grid Grid.Row="3">
+                            <TextBlock Text="{DynamicResource t_custom_card}" Style="{StaticResource SubText}" VerticalAlignment="Center" />
+                        </Grid>
+                        <Border x:Name="CardChip" Grid.Row="3" Grid.Column="1" Width="46" Height="24" CornerRadius="8"
+                                HorizontalAlignment="Left" Cursor="Hand" MouseLeftButtonDown="Chip_Click" Tag="card" />
+
+                        <Grid Grid.Row="4">
+                            <TextBlock Text="{DynamicResource t_custom_text}" Style="{StaticResource SubText}" VerticalAlignment="Center" />
+                        </Grid>
+                        <Border x:Name="TextChip" Grid.Row="4" Grid.Column="1" Width="46" Height="24" CornerRadius="8"
+                                HorizontalAlignment="Left" Cursor="Hand" MouseLeftButtonDown="Chip_Click" Tag="text" />
+                    </Grid>
+
+                    <!-- Background image -->
+                    <TextBlock Style="{StaticResource CardHeader}" Text="{DynamicResource t_custom_image}" Margin="0,16,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                        <Button x:Name="BtnPickImage" Style="{StaticResource SecondaryButton}"
+                                Content="{DynamicResource t_custom_image_pick}"
+                                Margin="0,0,12,0" Click="BtnPickImage_Click" />
+                        <Button x:Name="BtnClearImage" Style="{StaticResource SecondaryButton}"
+                                Content="{DynamicResource t_custom_image_clear}"
+                                Click="BtnClearImage_Click" />
+                    </StackPanel>
+
+                    <Grid Margin="0,16,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="DimLabel" Style="{StaticResource SubText}" />
+                        <Slider Grid.Row="1" x:Name="DimSlider" Style="{StaticResource AppSlider}"
+                                Minimum="0" Maximum="90" Margin="0,8,0,0"
+                                ValueChanged="DimSlider_ValueChanged" />
+                    </Grid>
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="BlurLabel" Style="{StaticResource SubText}" />
+                        <Slider Grid.Row="1" x:Name="BlurSlider" Style="{StaticResource AppSlider}"
+                                Minimum="0" Maximum="60" Margin="0,8,0,0"
+                                ValueChanged="BlurSlider_ValueChanged" />
+                    </Grid>
+
+                    <Button x:Name="BtnResetAppearance" Style="{StaticResource SecondaryButton}"
+                            Content="{DynamicResource t_custom_reset}" HorizontalAlignment="Left"
+                            Margin="0,18,0,0" Click="BtnResetAppearance_Click" />
+                </StackPanel>
+            </Border>
+
+            <!-- About -->
+            <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_about}" Margin="4,0,0,8" />
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource BgElevatedBrush}"
+                                BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1">
+                            <TextBlock Text="&#xE765;" FontFamily="Segoe MDL2 Assets" FontSize="21"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="KeyForge" FontSize="16" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock x:Name="VersionText" Style="{StaticResource MutedText}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource SubText}" Margin="0,12,0,0" TextWrapping="Wrap"
+                               Text="{DynamicResource t_settings_about_text}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
