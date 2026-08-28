@@ -16,7 +16,7 @@
 
 ## Скриншоты
 
-![Main Interface](docs/screenshots/main.png)
+![Main Interface](screenshots/main.png)
 *Основной интерфейс настройки*
 
 ## Быстрый старт
