@@ -16,8 +16,17 @@
 
 ## Скриншоты
 
-![Main Interface](screenshots/main.png)
+![Main Interface](screenshots/1.png)
 *Основной интерфейс настройки*
+
+![Key Mapping](screenshots/2.png)
+*Назначение клавиш*
+
+![Lighting](screenshots/3.png)
+*Настройка подсветки*
+
+![Macros](screenshots/4.png)
+*Редактор макросов*
 
 ## Быстрый старт
 
