@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>KyeForgeSetup</AssemblyName>
+    <Product>KyeForge Installer</Product>
+    <Version>1.0.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\KyeForge.App\Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\Resources\KyeForge.exe')">
+    <EmbeddedResource Include="Resources\KyeForge.exe">
+      <LogicalName>KyeForge.App.exe</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\Resources\source.zip')">
+    <EmbeddedResource Include="Resources\source.zip">
+      <LogicalName>KyeForge.Source.zip</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>
