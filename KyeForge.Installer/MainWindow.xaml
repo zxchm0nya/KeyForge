@@ -1,0 +1,63 @@
+﻿<Window x:Class="KyeForge.Installer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KyeForge Setup"
+        Width="500" Height="380"
+        MinWidth="500" MinHeight="380"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize">
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Step 1: Welcome -->
+        <StackPanel x:Name="StepWelcome" Grid.Row="0">
+            <TextBlock Text="KyeForge Installer" FontSize="18" FontWeight="Bold" Margin="0,0,0,6" />
+            <TextBlock Text="This wizard will install KyeForge on your computer." TextWrapping="Wrap" />
+            <TextBlock Text="Click Next to continue." Margin="0,12,0,0" />
+        </StackPanel>
+
+        <!-- Step 2: Path -->
+        <StackPanel x:Name="StepPath" Grid.Row="0" Visibility="Collapsed">
+            <TextBlock Text="Install Location" FontSize="18" FontWeight="Bold" Margin="0,0,0,10" />
+            <TextBlock Text="Choose the folder where KyeForge will be installed:" Margin="0,0,0,8" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="InstallPath" Text="C:\Program Files\KyeForge" Height="28" VerticalContentAlignment="Center" Padding="4,2" />
+                <Button Grid.Column="1" Content="Browse..." Margin="8,0,0,0" Width="75" Height="28" Click="Browse_Click" />
+            </Grid>
+            <CheckBox x:Name="ChkDesktopShortcut" Content="Create desktop shortcut" IsChecked="True" Margin="0,12,0,0" />
+            <CheckBox x:Name="LaunchAfter" Content="Launch KyeForge after installation" IsChecked="True" Margin="0,6,0,0" />
+        </StackPanel>
+
+        <!-- Step 3: Progress -->
+        <StackPanel x:Name="StepProgress" Grid.Row="0" Visibility="Collapsed">
+            <TextBlock Text="Installing..." FontSize="18" FontWeight="Bold" Margin="0,0,0,10" />
+            <TextBlock x:Name="ProgressText" Text="Preparing..." Margin="0,0,0,12" />
+            <ProgressBar x:Name="InstallProgress" Height="20" Minimum="0" Maximum="100" />
+        </StackPanel>
+
+        <!-- Step 4: Done -->
+        <StackPanel x:Name="StepDone" Grid.Row="0" Visibility="Collapsed">
+            <TextBlock Text="Installation Complete" FontSize="18" FontWeight="Bold" Margin="0,0,0,10" />
+            <TextBlock x:Name="DoneSub" Text="KyeForge has been installed successfully." TextWrapping="Wrap" />
+        </StackPanel>
+
+        <!-- Footer buttons -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button x:Name="BtnBack" Content="Back" Width="80" Height="30" Margin="0,0,8,0"
+                    Visibility="Collapsed" Click="Back_Click" />
+            <Button x:Name="BtnCancel" Content="Cancel" Width="80" Height="30" Margin="0,0,8,0"
+                    Click="Cancel_Click" />
+            <Button x:Name="BtnNext" Content="Next" Width="80" Height="30" IsDefault="True"
+                    Click="Next_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

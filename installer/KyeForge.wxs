@@ -1,0 +1,62 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="KyeForge"
+           Manufacturer="KyeForge"
+           Version="1.0.2"
+           UpgradeCode="9C1B4E3A-0B2C-4B2D-9E1A-6F5E6A7B8C9D"
+           Scope="perMachine"
+           Languages="1033">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of KyeForge is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="AppIcon" SourceFile="Assets/app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="APPLICATIONFOLDER" Value="ProgramFiles6432Folder\KyeForge" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="KyeForge">
+        <Directory Id="APPLICATIONROOTDIRECTORY" Name="KyeForge" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="KyeForge" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="ProductComponents" Directory="APPLICATIONROOTDIRECTORY">
+      <Component Id="MainExecutable" Bitness="always64">
+        <File Id="KyeForgeExe" Source="publish\win-x64\KyeForge.exe" KeyPath="yes" />
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Directory="ApplicationProgramsFolder"
+                  Name="KyeForge"
+                  Description="Keyboard Configurator"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon"
+                  Advertise="yes" />
+        <Shortcut Id="ApplicationDesktopShortcut"
+                  Directory="DesktopFolder"
+                  Name="KyeForge"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKLM"
+                       Key="Software\KyeForge"
+                       Name="InstallPath"
+                       Type="string"
+                       Value="[INSTALLFOLDER]"
+                       KeyPath="yes" />
+      </Component>
+      <Component Id="PdbFile" Bitness="always64" Guid="D4C1AB8E-5E6A-4F8E-9B2C-7A8B9C0D1E2F">
+        <File Id="KyeForgePdb" Source="publish\win-x64\KyeForge.pdb" KeyPath="yes" />
+      </Component>
+      <Component Id="ApplicationDataDir" Bitness="always64">
+        <CreateFolder />
+      </Component>
+    </ComponentGroup>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="MainFeature" Title="KyeForge" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+  </Package>
+</Wix>
