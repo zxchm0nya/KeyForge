@@ -48,7 +48,42 @@ public partial class SettingsView : UserControl
         UpdateBlurLabel();
 
         Loc.LanguageChanged += RefreshLanguageItems;
+        Customization.Changed += () => UpdateNavPositionSelection(_settings.SidebarPosition);
+        UpdateNavPositionSelection(_settings.SidebarPosition);
         _initDone = true;
+    }
+
+    private void UpdateNavPositionSelection(string currentPos)
+    {
+        var cards = new[] { CardNavLeft, CardNavTop, CardNavRight, CardNavBottom };
+        foreach (var card in cards)
+        {
+            if (card == null) continue;
+            bool isSelected = string.Equals((string)card.Tag, currentPos, StringComparison.OrdinalIgnoreCase);
+            if (isSelected)
+            {
+                card.SetResourceReference(Border.BorderBrushProperty, "AccentBrush");
+                card.SetResourceReference(Border.BackgroundProperty, "BgElevatedBrush");
+            }
+            else
+            {
+                card.SetResourceReference(Border.BorderBrushProperty, "BorderBrush");
+                card.SetResourceReference(Border.BackgroundProperty, "BgCardBrush");
+            }
+        }
+    }
+
+    private void NavPosCard_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is Border border && border.Tag is string pos)
+        {
+            _settings.SidebarPosition = pos;
+            _settings.Save();
+            UpdateNavPositionSelection(pos);
+
+            var win = Window.GetWindow(this) as MainWindow;
+            win?.ApplySidebarPosition(pos);
+        }
     }
 
     // ---------------- Presets ----------------

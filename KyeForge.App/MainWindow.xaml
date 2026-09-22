@@ -47,7 +47,7 @@
         <!-- ============ SIDEBAR ============ -->
         <Border x:Name="SidebarHost" Grid.Column="0" Background="{DynamicResource BgPanelBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
-            <Grid>
+            <Grid x:Name="SidebarInnerGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -55,14 +55,14 @@
                 </Grid.RowDefinitions>
 
                 <!-- Brand -->
-                <StackPanel Grid.Row="0" Margin="24,24,24,20">
+                <StackPanel x:Name="SidebarBrand" Grid.Row="0" Margin="24,24,24,20">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <StackPanel Margin="0,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="KeyForge" FontSize="19" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="{DynamicResource t_app_subtitle}" FontSize="10.5" Foreground="{DynamicResource TextMutedBrush}" />
                         </StackPanel>
                     </StackPanel>
-                    <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,18,0,0" />
+                    <Border x:Name="BrandDivider" Height="1" Background="{DynamicResource BorderBrush}" Margin="0,18,0,0" />
                 </StackPanel>
 
                 <!-- Nav (selection pill glides between items) -->
@@ -73,10 +73,10 @@
                             VerticalAlignment="Top" HorizontalAlignment="Stretch" Height="40"
                             IsHitTestVisible="False">
                         <Border.RenderTransform>
-                            <TranslateTransform x:Name="NavIndicatorShift" Y="0" />
+                            <TranslateTransform x:Name="NavIndicatorShift" X="0" Y="0" />
                         </Border.RenderTransform>
                     </Border>
-                    <StackPanel>
+                    <StackPanel x:Name="NavStack">
                         <views:NavButton x:Name="NavDevices" Tag="devices" Label="{DynamicResource t_nav_devices}" Icon="devices"
                                          AutomationProperties.Name="{Binding RelativeSource={RelativeSource Self}, Path=Label}" />
                         <views:NavButton x:Name="NavKeymap" Tag="keymap" Label="{DynamicResource t_nav_keymap}" Icon="keymap"
@@ -91,7 +91,7 @@
                 </Grid>
 
                 <!-- Footer status -->
-                <Border Grid.Row="2" Margin="20,0,20,20" Padding="14,12"
+                <Border x:Name="SidebarFooter" Grid.Row="2" Margin="20,0,20,20" Padding="14,12"
                         CornerRadius="12" Background="{DynamicResource BgCardBrush}">
                     <StackPanel>
                         <StackPanel Orientation="Horizontal">

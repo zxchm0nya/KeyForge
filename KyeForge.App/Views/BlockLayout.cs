@@ -52,12 +52,16 @@ public static class BlockLayout
         public string PageId = "";
         public FrameworkElement Block = null!;
         public int OrigVisualIndex;
+        public int OrigSlot;
+        public int CurrentTargetSlot;
         public double StartX, StartY;
         public TranslateTransform Move = new();
         public ScaleTransform Zoom = new(1, 1);
         public ScrollViewer? Scroller;
         public DispatcherTimer? AutoTimer;
         public Window? Window;
+        public List<FrameworkElement> VisibleBlocks = new();
+        public Dictionary<FrameworkElement, double> BaseY = new();
     }
 
     // ---------------- Setup ----------------
@@ -215,7 +219,7 @@ public static class BlockLayout
         {
             grip = new Thumb
             {
-                Width = 26, Height = 26,
+                Width = 28, Height = 28,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Top,
                 Margin = new Thickness(0, 6, 6, 0),
@@ -226,9 +230,10 @@ public static class BlockLayout
             };
         }
         catch { return; }
-        Panel.SetZIndex(grip, 10);
+        Panel.SetZIndex(grip, 20);
         wrapper.Children.Add(grip);
         Grips[block] = grip;
+        grip.MouseEnter += (_, _) => ShowGrip(block);
         grip.DragStarted += (_, _) => BeginDrag(block);
         grip.DragDelta += (_, e) => DragMove(e.HorizontalChange, e.VerticalChange);
         grip.DragCompleted += (_, _) => CommitDrag();
@@ -236,7 +241,8 @@ public static class BlockLayout
 
     private static void ShowGrip(FrameworkElement block)
     {
-        if (_drag != null || !Grips.TryGetValue(block, out var grip)) return;
+        if (_drag != null && _drag.Block != block) return;
+        if (!Grips.TryGetValue(block, out var grip)) return;
         grip.IsHitTestVisible = true;
         grip.BeginAnimation(UIElement.OpacityProperty,
             new DoubleAnimation(grip.Opacity, 1, TimeSpan.FromMilliseconds(120)));
@@ -255,13 +261,22 @@ public static class BlockLayout
         grip.BeginAnimation(UIElement.OpacityProperty, fade);
     }
 
-    private static void HideAllGrips()
+    private static void HideOtherGrips(FrameworkElement activeBlock)
     {
-        foreach (var g in Grips.Values)
+        foreach (var (b, g) in Grips)
         {
-            g.BeginAnimation(UIElement.OpacityProperty, null);
-            g.Opacity = 0;
-            g.IsHitTestVisible = false;
+            if (b != activeBlock)
+            {
+                g.BeginAnimation(UIElement.OpacityProperty, null);
+                g.Opacity = 0;
+                g.IsHitTestVisible = false;
+            }
+            else
+            {
+                g.BeginAnimation(UIElement.OpacityProperty, null);
+                g.Opacity = 1;
+                g.IsHitTestVisible = true;
+            }
         }
     }
 
@@ -274,19 +289,37 @@ public static class BlockLayout
         string pageId = GetPageId(panel);
         if (string.IsNullOrEmpty(pageId)) return;
 
+        var visible = VisibleBlocks(panel);
+        int origSlot = visible.IndexOf(block);
+        if (origSlot < 0) return;
+
+        var baseY = new Dictionary<FrameworkElement, double>();
+        foreach (var b in visible)
+        {
+            try { baseY[b] = b.TranslatePoint(new Point(0, 0), panel).Y; }
+            catch { baseY[b] = 0; }
+        }
+
         var mouse = Mouse.GetPosition(panel);
         _drag = new DragSession
         {
-            Panel = panel, PageId = pageId, Block = block,
+            Panel = panel,
+            PageId = pageId,
+            Block = block,
             OrigVisualIndex = panel.Children.IndexOf(block),
-            StartX = mouse.X, StartY = mouse.Y,
+            OrigSlot = origSlot,
+            CurrentTargetSlot = origSlot,
+            StartX = mouse.X,
+            StartY = mouse.Y,
+            VisibleBlocks = visible,
+            BaseY = baseY,
             Scroller = FindParent<ScrollViewer>(panel),
             Window = Window.GetWindow(panel)
         };
 
-        HideAllGrips();
+        HideOtherGrips(block);
         panel.CacheMode = null; // content cache would re-render on every mousemove
-        Panel.SetZIndex(block, 50);
+        Panel.SetZIndex(block, 100);
 
         var group = new TransformGroup();
         _drag.Zoom = new ScaleTransform(1, 1);
@@ -298,11 +331,11 @@ public static class BlockLayout
 
         var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
         _drag.Zoom.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(1, 1.03, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
+            new DoubleAnimation(1, 1.02, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
         _drag.Zoom.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(1, 1.03, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
+            new DoubleAnimation(1, 1.02, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
         block.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(block.Opacity, 0.96, TimeSpan.FromMilliseconds(140)));
+            new DoubleAnimation(block.Opacity, 0.95, TimeSpan.FromMilliseconds(140)));
 
         _drag.AutoTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
         _drag.AutoTimer.Tick += (_, _) => AutoScrollTick();
@@ -315,58 +348,78 @@ public static class BlockLayout
     {
         var d = _drag;
         if (d == null) return;
-        d.Move.X += dx;
+        d.Move.X += dx * 0.25;
         d.Move.Y += dy;
         UpdateSlot();
     }
 
     private static void CommitDrag() => EndDrag(commit: true);
 
-    private static void CancelDrag()
-    {
-        var d = _drag;
-        if (d == null) return;
-        // glide back to the original position, then settle
-        MoveBlockToVisualIndex(d, d.OrigVisualIndex);
-        EndDrag(commit: true);
-    }
-
-    private static void MoveBlockToVisualIndex(DragSession d, int visualIndex)
-    {
-        int slot = 0;
-        int limit = Math.Min(visualIndex, d.Panel.Children.Count);
-        for (int i = 0; i < limit; i++)
-        {
-            if (d.Panel.Children[i] is FrameworkElement c && c != d.Block &&
-                c.Visibility == Visibility.Visible && !string.IsNullOrEmpty(GetBlockId(c)))
-                slot++;
-        }
-        MoveBlockToVisibleSlot(d, slot);
-    }
+    private static void CancelDrag() => EndDrag(commit: false);
 
     private static void EndDrag(bool commit)
     {
         var d = _drag;
         if (d == null) return;
         _drag = null;
-        try { if (d.AutoTimer != null) d.AutoTimer.Stop(); } catch { }
+        try { d.AutoTimer?.Stop(); } catch { }
         if (d.Window != null) d.Window.PreviewKeyDown -= EscHandler;
         Panel.SetZIndex(d.Block, 0);
 
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var dur = TimeSpan.FromMilliseconds(SettleMs);
-        d.Move.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation(d.Move.X, 0, dur) { EasingFunction = ease });
-        d.Move.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(d.Move.Y, 0, dur) { EasingFunction = ease });
-        d.Zoom.BeginAnimation(ScaleTransform.ScaleXProperty,
-            new DoubleAnimation(d.Zoom.ScaleX, 1, dur) { EasingFunction = ease });
-        d.Zoom.BeginAnimation(ScaleTransform.ScaleYProperty,
-            new DoubleAnimation(d.Zoom.ScaleY, 1, dur) { EasingFunction = ease });
-        d.Block.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(d.Block.Opacity, 1, dur));
 
-        SaveOrder(d.PageId, d.Panel);
+        if (commit && d.CurrentTargetSlot != d.OrigSlot)
+        {
+            var panel = d.Panel;
+            var block = d.Block;
+            panel.Children.Remove(block);
+
+            int childIdx = panel.Children.Count;
+            int vi = 0;
+            for (int i = 0; i < panel.Children.Count; i++)
+            {
+                if (panel.Children[i] is FrameworkElement c &&
+                    c.Visibility == Visibility.Visible && !string.IsNullOrEmpty(GetBlockId(c)))
+                {
+                    if (vi == d.CurrentTargetSlot) { childIdx = i; break; }
+                    vi++;
+                }
+            }
+            panel.Children.Insert(Math.Min(childIdx, panel.Children.Count), block);
+            SaveOrder(d.PageId, panel);
+        }
+
+        // Reset transforms smoothly
+        foreach (var b in d.VisibleBlocks)
+        {
+            if (b == d.Block)
+            {
+                d.Move.BeginAnimation(TranslateTransform.XProperty,
+                    new DoubleAnimation(d.Move.X, 0, dur) { EasingFunction = ease });
+                d.Move.BeginAnimation(TranslateTransform.YProperty,
+                    new DoubleAnimation(d.Move.Y, 0, dur) { EasingFunction = ease });
+                d.Zoom.BeginAnimation(ScaleTransform.ScaleXProperty,
+                    new DoubleAnimation(d.Zoom.ScaleX, 1, dur) { EasingFunction = ease });
+                d.Zoom.BeginAnimation(ScaleTransform.ScaleYProperty,
+                    new DoubleAnimation(d.Zoom.ScaleY, 1, dur) { EasingFunction = ease });
+                d.Block.BeginAnimation(UIElement.OpacityProperty,
+                    new DoubleAnimation(d.Block.Opacity, 1, dur));
+            }
+            else
+            {
+                var t = GetTranslate(b);
+                t.BeginAnimation(TranslateTransform.YProperty,
+                    new DoubleAnimation(t.Y, 0, dur) { EasingFunction = ease });
+            }
+        }
+
+        if (Grips.TryGetValue(d.Block, out var grip))
+        {
+            grip.Opacity = 1;
+            grip.IsHitTestVisible = true;
+        }
+
         ScrollPerf.RefreshAll(); // restore content cache
     }
 
@@ -409,58 +462,53 @@ public static class BlockLayout
     {
         var d = _drag;
         if (d == null) return;
-        double y;
-        try { y = Mouse.GetPosition(d.Panel).Y; }
+
+        double currentCenterY;
+        try { currentCenterY = d.BaseY[d.Block] + d.Move.Y + d.Block.ActualHeight / 2.0; }
         catch { return; }
-        var vis = VisibleBlocks(d.Panel, d.Block);
-        int slot = 0;
-        foreach (var b in vis)
+
+        var others = d.VisibleBlocks.Where(b => b != d.Block).ToList();
+        int newSlot = 0;
+        foreach (var b in others)
         {
-            double mid;
-            try { mid = b.TranslatePoint(new Point(0, 0), d.Panel).Y + b.ActualHeight / 2; }
-            catch { continue; }
-            if (y > mid) slot++;
+            double bCenterY = d.BaseY[b] + b.ActualHeight / 2.0;
+            if (currentCenterY > bCenterY) newSlot++;
             else break;
         }
-        int cur = VisibleIndexOf(d.Panel, d.Block);
-        if (slot != cur) MoveBlockToVisibleSlot(d, slot);
+
+        if (newSlot != d.CurrentTargetSlot)
+        {
+            d.CurrentTargetSlot = newSlot;
+            AnimateSlots(d);
+        }
     }
 
-    private static void MoveBlockToVisibleSlot(DragSession d, int slot)
+    private static void AnimateSlots(DragSession d)
     {
-        var panel = d.Panel;
-        var block = d.Block;
-        var before = new Dictionary<FrameworkElement, double>();
-        foreach (var b in VisibleBlocks(panel, block))
-        {
-            try { before[b] = b.TranslatePoint(new Point(0, 0), panel).Y; }
-            catch { }
-        }
-
-        panel.Children.Remove(block);
-        int childIdx = panel.Children.Count, vi = 0;
-        for (int i = 0; i < panel.Children.Count; i++)
-        {
-            if (panel.Children[i] is FrameworkElement c &&
-                c.Visibility == Visibility.Visible && !string.IsNullOrEmpty(GetBlockId(c)))
-            {
-                if (vi == slot) { childIdx = i; break; }
-                vi++;
-            }
-        }
-        panel.Children.Insert(Math.Min(childIdx, panel.Children.Count), block);
+        var others = d.VisibleBlocks.Where(b => b != d.Block).ToList();
+        double draggedHeight = d.Block.ActualHeight;
 
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var dur = TimeSpan.FromMilliseconds(GlideMs);
-        foreach (var b in VisibleBlocks(panel, block))
+
+        for (int i = 0; i < others.Count; i++)
         {
-            if (!before.TryGetValue(b, out var y0)) continue;
-            double after;
-            try { after = b.TranslatePoint(new Point(0, 0), panel).Y; }
-            catch { continue; }
-            double delta = y0 - after;
-            if (Math.Abs(delta) > 0.5)
-                GlideTo(GetTranslate(b), delta, dur, ease);
+            var b = others[i];
+            double targetOffset = 0;
+
+            if (d.CurrentTargetSlot > d.OrigSlot)
+            {
+                if (i >= d.OrigSlot && i < d.CurrentTargetSlot)
+                    targetOffset = -draggedHeight;
+            }
+            else if (d.CurrentTargetSlot < d.OrigSlot)
+            {
+                if (i >= d.CurrentTargetSlot && i < d.OrigSlot)
+                    targetOffset = draggedHeight;
+            }
+
+            var t = GetTranslate(b);
+            GlideTo(t, targetOffset, dur, ease);
         }
     }
 
