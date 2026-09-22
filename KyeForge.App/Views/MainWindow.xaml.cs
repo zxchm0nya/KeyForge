@@ -49,6 +49,7 @@ namespace KyeForge.App.Views
             foreach (var n in navs)
                 n.NavClicked += OnNavClicked;
 
+            ApplySidebarPosition(_settings.SidebarPosition, save: false);
             ShowPage("devices");
             _state.PropertyChanged += OnStatePropertyChanged;
             Loc.LanguageChanged += OnLanguageChanged;
@@ -141,6 +142,179 @@ namespace KyeForge.App.Views
             MoveNavIndicator(true);
         }
 
+        public string CurrentSidebarPosition { get; private set; } = "Left";
+
+        public void ApplySidebarPosition(string position, bool save = true)
+        {
+            position = position switch
+            {
+                "Top" => "Top",
+                "Right" => "Right",
+                "Bottom" => "Bottom",
+                _ => "Left"
+            };
+
+            CurrentSidebarPosition = position;
+            if (save)
+            {
+                _settings.SidebarPosition = position;
+                _settings.Save();
+            }
+
+            bool isHorizontal = position is "Top" or "Bottom";
+
+            // Reconfigure RootGrid
+            RootGrid.ColumnDefinitions.Clear();
+            RootGrid.RowDefinitions.Clear();
+
+            if (position == "Left")
+            {
+                RootGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(240) });
+                RootGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                Grid.SetColumn(SidebarHost, 0);
+                Grid.SetRow(SidebarHost, 0);
+                Grid.SetColumn(ContentHost, 1);
+                Grid.SetRow(ContentHost, 0);
+
+                SidebarHost.BorderThickness = new Thickness(0, 0, 1, 0);
+                SidebarHost.ClearValue(WidthProperty);
+                SidebarHost.ClearValue(HeightProperty);
+            }
+            else if (position == "Right")
+            {
+                RootGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                RootGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(240) });
+
+                Grid.SetColumn(ContentHost, 0);
+                Grid.SetRow(ContentHost, 0);
+                Grid.SetColumn(SidebarHost, 1);
+                Grid.SetRow(SidebarHost, 0);
+
+                SidebarHost.BorderThickness = new Thickness(1, 0, 0, 0);
+                SidebarHost.ClearValue(WidthProperty);
+                SidebarHost.ClearValue(HeightProperty);
+            }
+            else if (position == "Top")
+            {
+                RootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                RootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+                Grid.SetColumn(SidebarHost, 0);
+                Grid.SetRow(SidebarHost, 0);
+                Grid.SetColumn(ContentHost, 0);
+                Grid.SetRow(ContentHost, 1);
+
+                SidebarHost.BorderThickness = new Thickness(0, 0, 0, 1);
+                SidebarHost.ClearValue(WidthProperty);
+                SidebarHost.ClearValue(HeightProperty);
+            }
+            else if (position == "Bottom")
+            {
+                RootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+                RootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                Grid.SetColumn(ContentHost, 0);
+                Grid.SetRow(ContentHost, 0);
+                Grid.SetColumn(SidebarHost, 0);
+                Grid.SetRow(SidebarHost, 1);
+
+                SidebarHost.BorderThickness = new Thickness(0, 1, 0, 0);
+                SidebarHost.ClearValue(WidthProperty);
+                SidebarHost.ClearValue(HeightProperty);
+            }
+
+            // Ensure background elements span everything
+            int colSpan = RootGrid.ColumnDefinitions.Count > 0 ? RootGrid.ColumnDefinitions.Count : 1;
+            int rowSpan = RootGrid.RowDefinitions.Count > 0 ? RootGrid.RowDefinitions.Count : 1;
+            var bgHosts = new FrameworkElement[] { BgImageHost, BgGifHost, BgVideoHost, BgDimHost };
+            foreach (var bg in bgHosts)
+            {
+                Grid.SetColumn(bg, 0);
+                Grid.SetRow(bg, 0);
+                Grid.SetColumnSpan(bg, colSpan);
+                Grid.SetRowSpan(bg, rowSpan);
+            }
+
+            // Internal Sidebar Layout
+            if (isHorizontal)
+            {
+                SidebarInnerGrid.RowDefinitions.Clear();
+                SidebarInnerGrid.ColumnDefinitions.Clear();
+                SidebarInnerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                SidebarInnerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                SidebarInnerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                // Brand
+                Grid.SetRow(SidebarBrand, 0);
+                Grid.SetColumn(SidebarBrand, 0);
+                SidebarBrand.Margin = new Thickness(20, 8, 16, 8);
+                SidebarBrand.VerticalAlignment = VerticalAlignment.Center;
+                BrandDivider.Visibility = Visibility.Collapsed;
+
+                // Nav
+                Grid.SetRow(NavGrid, 0);
+                Grid.SetColumn(NavGrid, 1);
+                NavGrid.Margin = new Thickness(8, 4, 8, 4);
+                NavGrid.HorizontalAlignment = HorizontalAlignment.Center;
+                NavGrid.VerticalAlignment = VerticalAlignment.Center;
+                NavStack.Orientation = Orientation.Horizontal;
+
+                NavIndicator.HorizontalAlignment = HorizontalAlignment.Left;
+                NavIndicator.VerticalAlignment = VerticalAlignment.Center;
+                NavIndicator.Height = 40;
+
+                foreach (var child in NavStack.Children.OfType<NavButton>())
+                    child.Margin = new Thickness(3, 0, 3, 0);
+
+                // Footer
+                Grid.SetRow(SidebarFooter, 0);
+                Grid.SetColumn(SidebarFooter, 2);
+                SidebarFooter.Margin = new Thickness(12, 6, 20, 6);
+                SidebarFooter.Padding = new Thickness(12, 6, 12, 6);
+                SidebarFooter.VerticalAlignment = VerticalAlignment.Center;
+            }
+            else
+            {
+                SidebarInnerGrid.RowDefinitions.Clear();
+                SidebarInnerGrid.ColumnDefinitions.Clear();
+                SidebarInnerGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                SidebarInnerGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+                SidebarInnerGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                // Brand
+                Grid.SetRow(SidebarBrand, 0);
+                Grid.SetColumn(SidebarBrand, 0);
+                SidebarBrand.Margin = new Thickness(24, 24, 24, 20);
+                SidebarBrand.VerticalAlignment = VerticalAlignment.Top;
+                BrandDivider.Visibility = Visibility.Visible;
+
+                // Nav
+                Grid.SetRow(NavGrid, 1);
+                Grid.SetColumn(NavGrid, 0);
+                NavGrid.Margin = new Thickness(14, 0, 14, 0);
+                NavGrid.HorizontalAlignment = HorizontalAlignment.Stretch;
+                NavGrid.VerticalAlignment = VerticalAlignment.Top;
+                NavStack.Orientation = Orientation.Vertical;
+
+                NavIndicator.HorizontalAlignment = HorizontalAlignment.Stretch;
+                NavIndicator.VerticalAlignment = VerticalAlignment.Top;
+                NavIndicator.Height = 40;
+
+                foreach (var child in NavStack.Children.OfType<NavButton>())
+                    child.Margin = new Thickness(0, 2, 0, 2);
+
+                // Footer
+                Grid.SetRow(SidebarFooter, 2);
+                Grid.SetColumn(SidebarFooter, 0);
+                SidebarFooter.Margin = new Thickness(20, 0, 20, 20);
+                SidebarFooter.Padding = new Thickness(14, 12, 14, 12);
+                SidebarFooter.VerticalAlignment = VerticalAlignment.Bottom;
+            }
+
+            Dispatcher.BeginInvoke(() => MoveNavIndicator(false), DispatcherPriority.Render);
+        }
+
         /// <summary>
         /// Glides the sidebar selection pill to the currently selected nav button
         /// instead of teleporting the highlight.
@@ -157,10 +331,8 @@ namespace KyeForge.App.Views
                 else if (NavSettings.IsSelected) btn = NavSettings;
                 if (btn == null || !btn.IsLoaded || NavGrid.ActualWidth <= 0) return;
 
+                bool isHorizontal = CurrentSidebarPosition is "Top" or "Bottom";
                 var pos = btn.TransformToAncestor(NavGrid).Transform(new Point(0, 0));
-                double targetY = pos.Y;
-                double targetH = btn.ActualHeight;
-                if (targetH <= 0) return;
 
                 if (NavIndicator.Visibility != Visibility.Visible)
                 {
@@ -168,27 +340,69 @@ namespace KyeForge.App.Views
                     animate = false;
                 }
 
-                if (!animate)
+                if (isHorizontal)
                 {
-                    NavIndicator.BeginAnimation(HeightProperty, null);
-                    NavIndicatorShift.BeginAnimation(TranslateTransform.YProperty, null);
+                    double targetX = pos.X;
+                    double targetW = btn.ActualWidth;
+                    double targetH = btn.ActualHeight > 0 ? btn.ActualHeight : 40;
+                    if (targetW <= 0) return;
+
                     NavIndicator.Height = targetH;
-                    NavIndicatorShift.Y = targetY;
-                    return;
+                    NavIndicatorShift.Y = pos.Y;
+
+                    if (!animate)
+                    {
+                        NavIndicator.BeginAnimation(WidthProperty, null);
+                        NavIndicatorShift.BeginAnimation(TranslateTransform.XProperty, null);
+                        NavIndicator.Width = targetW;
+                        NavIndicatorShift.X = targetX;
+                        return;
+                    }
+
+                    if (Math.Abs(NavIndicatorShift.X - targetX) < 0.5 &&
+                        Math.Abs(NavIndicator.Width - targetW) < 0.5)
+                        return;
+
+                    var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+                    var animX = new DoubleAnimation(NavIndicatorShift.X, targetX,
+                        TimeSpan.FromMilliseconds(210)) { EasingFunction = ease };
+                    NavIndicatorShift.BeginAnimation(TranslateTransform.XProperty, animX,
+                        HandoffBehavior.SnapshotAndReplace);
+                    var animW = new DoubleAnimation(NavIndicator.Width, targetW,
+                        TimeSpan.FromMilliseconds(210)) { EasingFunction = ease };
+                    NavIndicator.BeginAnimation(WidthProperty, animW, HandoffBehavior.SnapshotAndReplace);
                 }
+                else
+                {
+                    double targetY = pos.Y;
+                    double targetH = btn.ActualHeight;
+                    if (targetH <= 0) return;
 
-                if (Math.Abs(NavIndicatorShift.Y - targetY) < 0.5 &&
-                    Math.Abs(NavIndicator.Height - targetH) < 0.5)
-                    return;
+                    NavIndicator.Width = double.NaN; // stretch
+                    NavIndicatorShift.X = 0;
 
-                var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-                var animY = new DoubleAnimation(NavIndicatorShift.Y, targetY,
-                    TimeSpan.FromMilliseconds(210)) { EasingFunction = ease };
-                NavIndicatorShift.BeginAnimation(TranslateTransform.YProperty, animY,
-                    HandoffBehavior.SnapshotAndReplace);
-                var animH = new DoubleAnimation(NavIndicator.Height, targetH,
-                    TimeSpan.FromMilliseconds(210)) { EasingFunction = ease };
-                NavIndicator.BeginAnimation(HeightProperty, animH, HandoffBehavior.SnapshotAndReplace);
+                    if (!animate)
+                    {
+                        NavIndicator.BeginAnimation(HeightProperty, null);
+                        NavIndicatorShift.BeginAnimation(TranslateTransform.YProperty, null);
+                        NavIndicator.Height = targetH;
+                        NavIndicatorShift.Y = targetY;
+                        return;
+                    }
+
+                    if (Math.Abs(NavIndicatorShift.Y - targetY) < 0.5 &&
+                        Math.Abs(NavIndicator.Height - targetH) < 0.5)
+                        return;
+
+                    var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+                    var animY = new DoubleAnimation(NavIndicatorShift.Y, targetY,
+                        TimeSpan.FromMilliseconds(210)) { EasingFunction = ease };
+                    NavIndicatorShift.BeginAnimation(TranslateTransform.YProperty, animY,
+                        HandoffBehavior.SnapshotAndReplace);
+                    var animH = new DoubleAnimation(NavIndicator.Height, targetH,
+                        TimeSpan.FromMilliseconds(210)) { EasingFunction = ease };
+                    NavIndicator.BeginAnimation(HeightProperty, animH, HandoffBehavior.SnapshotAndReplace);
+                }
             }
             catch { }
         }

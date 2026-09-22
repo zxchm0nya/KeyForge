@@ -21,6 +21,9 @@ public class AppSettings
     public bool RememberLastDevice { get; set; } = true;
     public bool RememberLastConfig { get; set; } = true;
 
+    /// <summary>Position of the navigation bar: "Left", "Top", "Right", "Bottom". Default is "Left".</summary>
+    public string SidebarPosition { get; set; } = "Left";
+
     // ---- Appearance customization (empty = theme default) ----
     public string AccentColor { get; set; } = "";
     public string BgColor { get; set; } = "";
