@@ -46,7 +46,8 @@
 
         <!-- ============ SIDEBAR ============ -->
         <Border x:Name="SidebarHost" Grid.Column="0" Background="{DynamicResource BgPanelBrush}"
-                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0"
+                ClipToBounds="True">
             <Grid x:Name="SidebarInnerGrid">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -66,7 +67,7 @@
                 </StackPanel>
 
                 <!-- Nav (selection pill glides between items) -->
-                <Grid x:Name="NavGrid" Grid.Row="1" Margin="14,0,14,0">
+                <Grid x:Name="NavGrid" Grid.Row="1" Margin="14,0,14,0" ClipToBounds="True">
                     <Border x:Name="NavIndicator" CornerRadius="12" Visibility="Collapsed"
                             Background="{DynamicResource AccentGlowBrush}"
                             BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
@@ -150,5 +151,47 @@
                 <views:SettingsView x:Name="PageSettings" Visibility="Collapsed" />
             </Grid>
         </Grid>
+
+        <!-- ============ UPDATE TOAST ============ -->
+        <Border x:Name="UpdateToast" Grid.ColumnSpan="2" Panel.ZIndex="50"
+                Visibility="Collapsed" IsHitTestVisible="True"
+                HorizontalAlignment="Right" VerticalAlignment="Top"
+                Margin="0,16,16,0" Width="360" MaxHeight="420"
+                CornerRadius="14" Padding="16"
+                Background="{DynamicResource BgCardBrush}"
+                BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.35" />
+            </Border.Effect>
+            <StackPanel>
+                <Grid>
+                    <TextBlock x:Name="UpdateToastTitle" FontSize="14.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextWrapping="Wrap" />
+                    <Button HorizontalAlignment="Right" Width="28" Height="28" Padding="0"
+                            Style="{StaticResource SecondaryButton}" Focusable="False"
+                            ToolTip="{DynamicResource t_updates_toast_close}"
+                            AutomationProperties.Name="{DynamicResource t_updates_toast_close}"
+                            Click="UpdateToastClose_Click">
+                        <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </Button>
+                </Grid>
+                <Border x:Name="UpdateToastNotesCard" Margin="0,10,0,0" Padding="10"
+                        CornerRadius="10" Background="{DynamicResource BgElevatedBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                    <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                        <TextBlock x:Name="UpdateToastNotes" Style="{StaticResource SubText}"
+                                   TextWrapping="Wrap" />
+                    </ScrollViewer>
+                </Border>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                    <Button Style="{StaticResource PrimaryButton}" Padding="18,10"
+                            Content="{DynamicResource t_updates_toast_update}"
+                            AutomationProperties.Name="{DynamicResource t_updates_toast_update}"
+                            Click="UpdateToastUpdate_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

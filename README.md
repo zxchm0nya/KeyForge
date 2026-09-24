@@ -3,16 +3,16 @@
 Нативное приложение для настройки клавиатур через VIA-протокол с поддержкой JSON-конфигураций без использования браузера.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)]()
-[![Release](https://img.shields.io/github/v/release/yourusername/keyforge)]()
+[![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)]()
+[![Release](https://img.shields.io/github/v/release/zxchm0nya/KeyForge)]()
 
 ## Особенности
 
 - Нативное приложение, работающее быстрее браузерной версии
 - Поддержка JSON-конфигураций для загрузки пользовательских раскладок
 - Автоматическое определение клавиатуры при подключении
-- Сохранение и быстрое переключение профилей
-- Кроссплатформенность: Windows, macOS, Linux
+- Фон: картинки, GIF и видео; плавный скролл; перетаскивание блоков
+- Проверка обновлений с GitHub Releases
 
 ## Скриншоты
 
@@ -30,16 +30,23 @@
 
 ## Быстрый старт
 
-В последних обновлениях доступен готовый установщик. Достаточно скачать его из раздела [Releases](https://github.com/yourusername/keyforge/releases), установить и использовать приложение без консоли и дополнительных действий.
+Готовый установщик — в разделе [Releases](https://github.com/zxchm0nya/KeyForge/releases).
 
 ### Сборка из исходников
 
 ```bash
-git clone https://github.com/yourusername/keyforge.git
-cd keyforge
+git clone https://github.com/zxchm0nya/KeyForge.git
+cd KeyForge
 
-npm install
-npm start
+# Сборка приложения
+dotnet build KyeForge.sln -c Release
 
-# Сборка для вашей ОС
-npm run build
+# Или полный релиз (app + installer)
+powershell -ExecutionPolicy Bypass -File build.ps1
+```
+
+## Структура
+
+- `KyeForge.App` — основное приложение (WPF)
+- `KyeForge.Installer` — установщик
+- `build.ps1` — чистка, сборка, упаковка setup

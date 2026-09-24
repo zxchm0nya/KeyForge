@@ -153,4 +153,19 @@
     <sys:String x:Key="t_nav_pos_right">Right</sys:String>
     <sys:String x:Key="t_nav_pos_bottom">Bottom</sys:String>
 
+    <!-- ============ Updates ============ -->
+    <sys:String x:Key="t_settings_updates">Updates</sys:String>
+    <sys:String x:Key="t_updates_current">Installed version {0}</sys:String>
+    <sys:String x:Key="t_updates_check">Check for updates</sys:String>
+    <sys:String x:Key="t_updates_checking">Checking GitHub…</sys:String>
+    <sys:String x:Key="t_updates_none">You are on the latest version.</sys:String>
+    <sys:String x:Key="t_updates_none_named">You are on the latest version ({0}).</sys:String>
+    <sys:String x:Key="t_updates_available">Update {0} available</sys:String>
+    <sys:String x:Key="t_updates_error">Could not check for updates. Check access to github.com.</sys:String>
+    <sys:String x:Key="t_updates_open">Open on GitHub</sys:String>
+    <sys:String x:Key="t_updates_notes">What's new</sys:String>
+    <sys:String x:Key="t_updates_toast_title">Update {0} available</sys:String>
+    <sys:String x:Key="t_updates_toast_update">Update</sys:String>
+    <sys:String x:Key="t_updates_toast_close">Close</sys:String>
+
 </ResourceDictionary>

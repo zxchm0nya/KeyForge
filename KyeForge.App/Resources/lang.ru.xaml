@@ -153,4 +153,19 @@
     <sys:String x:Key="t_nav_pos_right">Справа</sys:String>
     <sys:String x:Key="t_nav_pos_bottom">Снизу</sys:String>
 
+    <!-- ============ Updates ============ -->
+    <sys:String x:Key="t_settings_updates">Обновления</sys:String>
+    <sys:String x:Key="t_updates_current">Установлена версия {0}</sys:String>
+    <sys:String x:Key="t_updates_check">Проверить обновления</sys:String>
+    <sys:String x:Key="t_updates_checking">Проверяем GitHub…</sys:String>
+    <sys:String x:Key="t_updates_none">У вас последняя версия.</sys:String>
+    <sys:String x:Key="t_updates_none_named">У вас последняя версия ({0}).</sys:String>
+    <sys:String x:Key="t_updates_available">Доступно обновление {0}</sys:String>
+    <sys:String x:Key="t_updates_error">Не удалось проверить обновления. Проверьте доступ к github.com.</sys:String>
+    <sys:String x:Key="t_updates_open">Открыть на GitHub</sys:String>
+    <sys:String x:Key="t_updates_notes">Что нового</sys:String>
+    <sys:String x:Key="t_updates_toast_title">Доступно обновление {0}</sys:String>
+    <sys:String x:Key="t_updates_toast_update">Обновить</sys:String>
+    <sys:String x:Key="t_updates_toast_close">Закрыть</sys:String>
+
 </ResourceDictionary>

@@ -28,6 +28,8 @@ namespace KyeForge.App.Views
         private int _gifIndex;
         private DispatcherTimer? _gifTimer;
         private bool _videoActive;
+        private int _navIndicatorRetries;
+        private DispatcherTimer? _toastTimer;
 
         public MainWindow()
         {
@@ -88,6 +90,74 @@ namespace KyeForge.App.Views
             UpdateConfigBadge();
             InstallKeyboardHook();
             PlayWindowEntrance();
+
+            UpdateChecker.Checked += OnUpdateChecked;
+            _ = Dispatcher.BeginInvoke(async () =>
+            {
+                await Task.Delay(1200);
+                await UpdateChecker.CheckInBackgroundAsync();
+            }, DispatcherPriority.Background);
+        }
+
+        private void OnUpdateChecked(UpdateInfo? info)
+        {
+            if (info is { IsNewer: true })
+                ShowUpdateToast(info);
+        }
+
+        private void ShowUpdateToast(UpdateInfo info)
+        {
+            UpdateToastTitle.Text = Loc.T("t_updates_toast_title", info.Version);
+            var notes = UpdateChecker.PlainNotes(info.Body, 500);
+            if (string.IsNullOrWhiteSpace(notes))
+            {
+                UpdateToastNotesCard.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                UpdateToastNotesCard.Visibility = Visibility.Visible;
+                UpdateToastNotes.Text = notes;
+            }
+
+            UpdateToast.Visibility = Visibility.Visible;
+            UpdateToast.Opacity = 0;
+            UpdateToast.RenderTransform = new TranslateTransform(0, -12);
+            UpdateToast.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
+            var slide = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(260))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+            UpdateToast.RenderTransform.BeginAnimation(TranslateTransform.YProperty, slide);
+
+            _toastTimer?.Stop();
+            _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(18) };
+            _toastTimer.Tick += (_, _) =>
+            {
+                _toastTimer.Stop();
+                HideUpdateToast();
+            };
+            _toastTimer.Start();
+        }
+
+        private void HideUpdateToast()
+        {
+            if (UpdateToast.Visibility != Visibility.Visible) return;
+            var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(160));
+            fade.Completed += (_, _) => UpdateToast.Visibility = Visibility.Collapsed;
+            UpdateToast.BeginAnimation(OpacityProperty, fade);
+        }
+
+        private void UpdateToastClose_Click(object sender, RoutedEventArgs e)
+        {
+            _toastTimer?.Stop();
+            HideUpdateToast();
+        }
+
+        private void UpdateToastUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            _toastTimer?.Stop();
+            HideUpdateToast();
+            UpdateChecker.OpenRelease(UpdateChecker.LastResult);
         }
 
         private void OnNavClicked(object sender, MouseButtonEventArgs e)
@@ -144,6 +214,22 @@ namespace KyeForge.App.Views
 
         public string CurrentSidebarPosition { get; private set; } = "Left";
 
+        /// <summary>
+        /// Kills every running pill animation and local translate/size leftover.
+        /// Active animations outrank local values, so a stale X/Width from the
+        /// previous orientation would otherwise stick and push the pill out of
+        /// the sidebar (under the content) or collapse it to zero width.
+        /// </summary>
+        private void ResetNavIndicatorVisual()
+        {
+            NavIndicator.BeginAnimation(WidthProperty, null);
+            NavIndicator.BeginAnimation(HeightProperty, null);
+            NavIndicatorShift.BeginAnimation(TranslateTransform.XProperty, null);
+            NavIndicatorShift.BeginAnimation(TranslateTransform.YProperty, null);
+            NavIndicatorShift.X = 0;
+            NavIndicatorShift.Y = 0;
+        }
+
         public void ApplySidebarPosition(string position, bool save = true)
         {
             position = position switch
@@ -160,6 +246,10 @@ namespace KyeForge.App.Views
                 _settings.SidebarPosition = position;
                 _settings.Save();
             }
+
+            // Drop stale animations BEFORE layout swap so Width=NaN / X=0 stick.
+            ResetNavIndicatorVisual();
+            _navIndicatorRetries = 0;
 
             bool isHorizontal = position is "Top" or "Bottom";
 
@@ -262,6 +352,7 @@ namespace KyeForge.App.Views
 
                 NavIndicator.HorizontalAlignment = HorizontalAlignment.Left;
                 NavIndicator.VerticalAlignment = VerticalAlignment.Center;
+                NavIndicator.BeginAnimation(HeightProperty, null);
                 NavIndicator.Height = 40;
 
                 foreach (var child in NavStack.Children.OfType<NavButton>())
@@ -299,6 +390,9 @@ namespace KyeForge.App.Views
 
                 NavIndicator.HorizontalAlignment = HorizontalAlignment.Stretch;
                 NavIndicator.VerticalAlignment = VerticalAlignment.Top;
+                NavIndicator.BeginAnimation(WidthProperty, null);
+                NavIndicator.Width = double.NaN;
+                NavIndicator.BeginAnimation(HeightProperty, null);
                 NavIndicator.Height = 40;
 
                 foreach (var child in NavStack.Children.OfType<NavButton>())
@@ -313,6 +407,8 @@ namespace KyeForge.App.Views
             }
 
             Dispatcher.BeginInvoke(() => MoveNavIndicator(false), DispatcherPriority.Render);
+            // Layout after a column/row swap can settle a frame later — retry once.
+            Dispatcher.BeginInvoke(() => MoveNavIndicator(false), DispatcherPriority.Loaded);
         }
 
         /// <summary>
@@ -329,10 +425,23 @@ namespace KyeForge.App.Views
                 else if (NavLighting.IsSelected) btn = NavLighting;
                 else if (NavTest.IsSelected) btn = NavTest;
                 else if (NavSettings.IsSelected) btn = NavSettings;
-                if (btn == null || !btn.IsLoaded || NavGrid.ActualWidth <= 0) return;
+                if (btn == null || !btn.IsLoaded) return;
+                if (NavGrid.ActualWidth <= 0 || NavGrid.ActualHeight <= 0)
+                {
+                    // Mid layout-swap: try a few times after the next layout pass.
+                    if (_navIndicatorRetries < 8)
+                    {
+                        _navIndicatorRetries++;
+                        Dispatcher.BeginInvoke(() => MoveNavIndicator(false), DispatcherPriority.Loaded);
+                    }
+                    return;
+                }
+                _navIndicatorRetries = 0;
 
                 bool isHorizontal = CurrentSidebarPosition is "Top" or "Bottom";
-                var pos = btn.TransformToAncestor(NavGrid).Transform(new Point(0, 0));
+                Point pos;
+                try { pos = btn.TransformToAncestor(NavGrid).Transform(new Point(0, 0)); }
+                catch { return; }
 
                 if (NavIndicator.Visibility != Visibility.Visible)
                 {
@@ -345,8 +454,19 @@ namespace KyeForge.App.Views
                     double targetX = pos.X;
                     double targetW = btn.ActualWidth;
                     double targetH = btn.ActualHeight > 0 ? btn.ActualHeight : 40;
-                    if (targetW <= 0) return;
+                    if (targetW <= 0)
+                    {
+                        if (_navIndicatorRetries < 8)
+                        {
+                            _navIndicatorRetries++;
+                            Dispatcher.BeginInvoke(() => MoveNavIndicator(false), DispatcherPriority.Loaded);
+                        }
+                        return;
+                    }
 
+                    // Clear the vertical-mode leftovers first (anim > local value).
+                    NavIndicatorShift.BeginAnimation(TranslateTransform.YProperty, null);
+                    NavIndicator.BeginAnimation(HeightProperty, null);
                     NavIndicator.Height = targetH;
                     NavIndicatorShift.Y = pos.Y;
 
@@ -360,6 +480,7 @@ namespace KyeForge.App.Views
                     }
 
                     if (Math.Abs(NavIndicatorShift.X - targetX) < 0.5 &&
+                        !double.IsNaN(NavIndicator.Width) &&
                         Math.Abs(NavIndicator.Width - targetW) < 0.5)
                         return;
 
@@ -368,7 +489,8 @@ namespace KyeForge.App.Views
                         TimeSpan.FromMilliseconds(210)) { EasingFunction = ease };
                     NavIndicatorShift.BeginAnimation(TranslateTransform.XProperty, animX,
                         HandoffBehavior.SnapshotAndReplace);
-                    var animW = new DoubleAnimation(NavIndicator.Width, targetW,
+                    double fromW = double.IsNaN(NavIndicator.Width) ? targetW : NavIndicator.Width;
+                    var animW = new DoubleAnimation(fromW, targetW,
                         TimeSpan.FromMilliseconds(210)) { EasingFunction = ease };
                     NavIndicator.BeginAnimation(WidthProperty, animW, HandoffBehavior.SnapshotAndReplace);
                 }
@@ -376,16 +498,27 @@ namespace KyeForge.App.Views
                 {
                     double targetY = pos.Y;
                     double targetH = btn.ActualHeight;
-                    if (targetH <= 0) return;
+                    if (targetH <= 0)
+                    {
+                        if (_navIndicatorRetries < 8)
+                        {
+                            _navIndicatorRetries++;
+                            Dispatcher.BeginInvoke(() => MoveNavIndicator(false), DispatcherPriority.Loaded);
+                        }
+                        return;
+                    }
 
+                    // Clear the horizontal-mode leftovers first (anim > local value).
+                    NavIndicator.BeginAnimation(WidthProperty, null);
+                    NavIndicatorShift.BeginAnimation(TranslateTransform.XProperty, null);
                     NavIndicator.Width = double.NaN; // stretch
                     NavIndicatorShift.X = 0;
+                    NavIndicator.BeginAnimation(HeightProperty, null);
+                    NavIndicator.Height = targetH;
 
                     if (!animate)
                     {
-                        NavIndicator.BeginAnimation(HeightProperty, null);
                         NavIndicatorShift.BeginAnimation(TranslateTransform.YProperty, null);
-                        NavIndicator.Height = targetH;
                         NavIndicatorShift.Y = targetY;
                         return;
                     }
