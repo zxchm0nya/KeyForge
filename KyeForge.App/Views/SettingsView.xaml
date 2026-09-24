@@ -213,6 +213,39 @@
                 </StackPanel>
             </Grid>
 
+            <Grid views:BlockLayout.BlockId="settings.updates" Background="Transparent">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_updates}" Margin="4,0,0,8" />
+                    <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock x:Name="UpdateCurrentText" Style="{StaticResource SubText}" TextWrapping="Wrap" />
+                            <TextBlock x:Name="UpdateStatusText" Style="{StaticResource SubText}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="UpdateNotesHeader" Style="{StaticResource CardHeader}"
+                                       Margin="0,14,0,0" Visibility="Collapsed"
+                                       Text="{DynamicResource t_updates_notes}" />
+                            <Border x:Name="UpdateNotesCard" Margin="0,8,0,0" Padding="12"
+                                    CornerRadius="10" Background="{DynamicResource BgElevatedBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    Visibility="Collapsed">
+                                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                                    <TextBlock x:Name="UpdateNotesText" Style="{DynamicResource SubText}"
+                                               TextWrapping="Wrap" />
+                                </ScrollViewer>
+                            </Border>
+                            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                <Button x:Name="BtnCheckUpdates" Style="{StaticResource SecondaryButton}"
+                                        Content="{DynamicResource t_updates_check}"
+                                        Margin="0,0,12,0" Click="BtnCheckUpdates_Click" />
+                                <Button x:Name="BtnOpenRelease" Style="{StaticResource PrimaryButton}"
+                                        Content="{DynamicResource t_updates_open}"
+                                        Visibility="Collapsed" Click="BtnOpenRelease_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
             <Grid views:BlockLayout.BlockId="settings.language" Background="Transparent">
                 <StackPanel>
                     <!-- Language -->

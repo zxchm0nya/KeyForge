@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -5,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using KyeForge.App.Services;
 
@@ -55,6 +57,10 @@ public static class BlockLayout
         public int OrigSlot;
         public int CurrentTargetSlot;
         public double StartX, StartY;
+        public double LastX, LastY;
+        public Point GrabOffset;
+        public double GhostW;
+        public double GhostH;
         public TranslateTransform Move = new();
         public ScaleTransform Zoom = new(1, 1);
         public ScrollViewer? Scroller;
@@ -62,7 +68,22 @@ public static class BlockLayout
         public Window? Window;
         public List<FrameworkElement> VisibleBlocks = new();
         public Dictionary<FrameworkElement, double> BaseY = new();
+        public Popup? PreviewPopup;
+        public Border? PreviewBlock;
+        public Popup? GhostPopup;
+        public Border? GhostBorder;
+        public Image? GhostImage;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativePoint
+    {
+        public int X;
+        public int Y;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out NativePoint point);
 
     // ---------------- Setup ----------------
 
@@ -86,6 +107,15 @@ public static class BlockLayout
         {
             s.BlockDefaults[pageId] = new List<string>(current);
             dirty = true;
+        }
+        else
+        {
+            // Append blocks that shipped after defaults were first captured.
+            var def = s.BlockDefaults[pageId];
+            foreach (var id in current)
+            {
+                if (!def.Contains(id)) { def.Add(id); dirty = true; }
+            }
         }
         if (s.BlockOrders.TryGetValue(pageId, out var saved))
             ApplyOrder(panel, saved, animate: false);
@@ -234,8 +264,10 @@ public static class BlockLayout
         wrapper.Children.Add(grip);
         Grips[block] = grip;
         grip.MouseEnter += (_, _) => ShowGrip(block);
+        grip.PreviewMouseLeftButtonDown += (_, _) => BeginDragFromPointer(block);
+        grip.PreviewMouseMove += (_, _) => TrackPointerDrag();
+        grip.PreviewMouseLeftButtonUp += (_, _) => CommitDragIfActive(block);
         grip.DragStarted += (_, _) => BeginDrag(block);
-        grip.DragDelta += (_, e) => DragMove(e.HorizontalChange, e.VerticalChange);
         grip.DragCompleted += (_, _) => CommitDrag();
     }
 
@@ -252,6 +284,7 @@ public static class BlockLayout
     {
         if (!Grips.TryGetValue(block, out var grip)) return;
         if (_drag?.Block == block) return;
+        if (grip.IsMouseCaptureWithin || Mouse.LeftButton == MouseButtonState.Pressed) return;
         var fade = new DoubleAnimation(grip.Opacity, 0, TimeSpan.FromMilliseconds(150));
         fade.Completed += (_, _) =>
         {
@@ -282,7 +315,19 @@ public static class BlockLayout
 
     // ---------------- Drag ----------------
 
-    private static void BeginDrag(FrameworkElement block)
+    private static void BeginDragFromPointer(FrameworkElement block)
+    {
+        if (VisualTreeHelper.GetParent(block) is not StackPanel panel) return;
+        BeginDrag(block, CurrentPointerPosition(panel));
+    }
+
+    private static void CommitDragIfActive(FrameworkElement block)
+    {
+        if (_drag?.Block == block)
+            CommitDrag();
+    }
+
+    private static void BeginDrag(FrameworkElement block, Point? start = null)
     {
         if (_drag != null) return;
         if (VisualTreeHelper.GetParent(block) is not StackPanel panel) return;
@@ -300,7 +345,7 @@ public static class BlockLayout
             catch { baseY[b] = 0; }
         }
 
-        var mouse = Mouse.GetPosition(panel);
+        var mouse = start ?? CurrentPointerPosition(panel);
         _drag = new DragSession
         {
             Panel = panel,
@@ -311,6 +356,8 @@ public static class BlockLayout
             CurrentTargetSlot = origSlot,
             StartX = mouse.X,
             StartY = mouse.Y,
+            LastX = mouse.X,
+            LastY = mouse.Y,
             VisibleBlocks = visible,
             BaseY = baseY,
             Scroller = FindParent<ScrollViewer>(panel),
@@ -319,38 +366,124 @@ public static class BlockLayout
 
         HideOtherGrips(block);
         panel.CacheMode = null; // content cache would re-render on every mousemove
-        Panel.SetZIndex(block, 100);
 
-        var group = new TransformGroup();
-        _drag.Zoom = new ScaleTransform(1, 1);
-        _drag.Move = new TranslateTransform(0, 0);
-        group.Children.Add(_drag.Zoom);
-        group.Children.Add(_drag.Move);
-        block.RenderTransformOrigin = new Point(0.5, 0);
-        block.RenderTransform = group;
+        // Ghost popup: the dragged card flies above everything (not clipped by ScrollViewer)
+        // Original stays as a dim placeholder so the layout doesn't collapse.
+        double w = Math.Max(1, block.ActualWidth);
+        double h = Math.Max(1, block.ActualHeight);
+        Point blockPos;
+        try { blockPos = block.TranslatePoint(new Point(0, 0), panel); }
+        catch { blockPos = new Point(0, _drag.BaseY.TryGetValue(block, out var by) ? by : 0); }
+        _drag.GrabOffset = new Point(mouse.X - blockPos.X, mouse.Y - blockPos.Y);
+        _drag.GhostW = w;
+        _drag.GhostH = h;
+
+        // Snapshot BEFORE dimming: live VisualBrush would follow Opacity=0 of the placeholder,
+        // and Freeze() on an in-tree visual always throws (old empty-card fallback).
+        FrameworkElement ghostContent;
+        try
+        {
+            var dpi = VisualTreeHelper.GetDpi(block);
+            int pw = Math.Max(1, (int)Math.Ceiling(w * dpi.DpiScaleX));
+            int ph = Math.Max(1, (int)Math.Ceiling(h * dpi.DpiScaleY));
+            var rtb = new System.Windows.Media.Imaging.RenderTargetBitmap(
+                pw, ph, dpi.DpiScaleX * 96.0, dpi.DpiScaleY * 96.0, System.Windows.Media.PixelFormats.Pbgra32);
+            var dv = new DrawingVisual();
+            using (var dc = dv.RenderOpen())
+            {
+                dc.DrawRectangle(new VisualBrush(block), null, new Rect(0, 0, w, h));
+            }
+            rtb.Render(dv);
+            rtb.Freeze();
+            var img = new Image
+            {
+                Source = rtb,
+                Width = w,
+                Height = h,
+                Stretch = Stretch.Fill,
+                SnapsToDevicePixels = true
+            };
+            ghostContent = img;
+        }
+        catch
+        {
+            ghostContent = new Border { Width = w, Height = h, Background = ResourceBrush(panel, "BgCardBrush", Color.FromRgb(21,27,34), 1) };
+        }
+
+        // Invisible placeholder: keeps layout height so the panel doesn't jump,
+        // but siblings may FLIP over this slot without a visual double-exposure.
+        block.Opacity = 0;
+        block.IsHitTestVisible = false;
+        Panel.SetZIndex(block, 0);
+
+        var ghostBorder = new Border
+        {
+            Width = w, Height = h,
+            CornerRadius = new CornerRadius(10),
+            BorderBrush = ResourceBrush(panel, "AccentBrush", Color.FromRgb(40,215,183), 0.9),
+            BorderThickness = new Thickness(1.4),
+            Background = Brushes.Transparent,
+            Child = ghostContent,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 18, ShadowDepth = 6, Direction = 270, Opacity = 0.35, Color = Color.FromRgb(0,0,0)
+            },
+            RenderTransformOrigin = new Point(0.5, 0.5),
+            RenderTransform = new ScaleTransform(1, 1)
+        };
+        _drag.GhostBorder = ghostBorder;
+        _drag.Zoom = (ScaleTransform)ghostBorder.RenderTransform;
+
+        var ghostPopup = new Popup
+        {
+            AllowsTransparency = true,
+            Placement = PlacementMode.Relative,
+            PlacementTarget = panel,
+            StaysOpen = true,
+            IsHitTestVisible = false,
+            Child = ghostBorder,
+            HorizontalOffset = mouse.X - _drag.GrabOffset.X,
+            VerticalOffset = mouse.Y - _drag.GrabOffset.Y
+        };
+        _drag.GhostPopup = ghostPopup;
+        ghostPopup.IsOpen = true;
 
         var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
         _drag.Zoom.BeginAnimation(ScaleTransform.ScaleXProperty,
             new DoubleAnimation(1, 1.02, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
         _drag.Zoom.BeginAnimation(ScaleTransform.ScaleYProperty,
             new DoubleAnimation(1, 1.02, TimeSpan.FromMilliseconds(140)) { EasingFunction = ease });
-        block.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(block.Opacity, 0.95, TimeSpan.FromMilliseconds(140)));
+        ghostBorder.BeginAnimation(UIElement.OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(140)));
 
         _drag.AutoTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        _drag.AutoTimer.Tick += (_, _) => AutoScrollTick();
+        _drag.AutoTimer.Tick += (_, _) => DragTimerTick();
         _drag.AutoTimer.Start();
         if (_drag.Window != null)
             _drag.Window.PreviewKeyDown += EscHandler;
+
+        CreateDropPreview(_drag);
+        UpdateDropPreview(_drag);
     }
 
-    private static void DragMove(double dx, double dy)
+    private static void DragMoveTo(Point p)
     {
         var d = _drag;
         if (d == null) return;
-        d.Move.X += dx * 0.25;
-        d.Move.Y += dy;
+        d.LastX = p.X;
+        d.LastY = p.Y;
+        if (d.GhostPopup != null)
+        {
+            d.GhostPopup.HorizontalOffset = p.X - d.GrabOffset.X;
+            d.GhostPopup.VerticalOffset = p.Y - d.GrabOffset.Y;
+        }
+        else
+        {
+            d.Move.X = (p.X - d.StartX) * 0.25;
+            d.Move.Y = p.Y - d.StartY;
+        }
         UpdateSlot();
+        UpdateDropPreview(d);
     }
 
     private static void CommitDrag() => EndDrag(commit: true);
@@ -364,7 +497,26 @@ public static class BlockLayout
         _drag = null;
         try { d.AutoTimer?.Stop(); } catch { }
         if (d.Window != null) d.Window.PreviewKeyDown -= EscHandler;
-        Panel.SetZIndex(d.Block, 0);
+        RemoveDropPreview(d);
+
+        // Remove ghost (top-most popup)
+        Popup? ghost = d.GhostPopup;
+        Border? ghostBorder = d.GhostBorder;
+        d.GhostPopup = null;
+        d.GhostBorder = null;
+        d.GhostImage = null;
+        if (ghost != null)
+        {
+            try { ghost.IsOpen = false; ghost.Child = null; } catch { }
+        }
+
+        // Restore original placeholder
+        var block = d.Block;
+        block.BeginAnimation(UIElement.OpacityProperty, null);
+        block.Opacity = 1;
+        block.IsHitTestVisible = true;
+        block.RenderTransform = null;
+        Panel.SetZIndex(block, 0);
 
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var dur = TimeSpan.FromMilliseconds(SettleMs);
@@ -372,7 +524,6 @@ public static class BlockLayout
         if (commit && d.CurrentTargetSlot != d.OrigSlot)
         {
             var panel = d.Panel;
-            var block = d.Block;
             panel.Children.Remove(block);
 
             int childIdx = panel.Children.Count;
@@ -389,32 +540,26 @@ public static class BlockLayout
             panel.Children.Insert(Math.Min(childIdx, panel.Children.Count), block);
             SaveOrder(d.PageId, panel);
         }
-
-        // Reset transforms smoothly
-        foreach (var b in d.VisibleBlocks)
+        else if (ghostBorder != null)
         {
-            if (b == d.Block)
-            {
-                d.Move.BeginAnimation(TranslateTransform.XProperty,
-                    new DoubleAnimation(d.Move.X, 0, dur) { EasingFunction = ease });
-                d.Move.BeginAnimation(TranslateTransform.YProperty,
-                    new DoubleAnimation(d.Move.Y, 0, dur) { EasingFunction = ease });
-                d.Zoom.BeginAnimation(ScaleTransform.ScaleXProperty,
-                    new DoubleAnimation(d.Zoom.ScaleX, 1, dur) { EasingFunction = ease });
-                d.Zoom.BeginAnimation(ScaleTransform.ScaleYProperty,
-                    new DoubleAnimation(d.Zoom.ScaleY, 1, dur) { EasingFunction = ease });
-                d.Block.BeginAnimation(UIElement.OpacityProperty,
-                    new DoubleAnimation(d.Block.Opacity, 1, dur));
-            }
-            else
-            {
-                var t = GetTranslate(b);
-                t.BeginAnimation(TranslateTransform.YProperty,
-                    new DoubleAnimation(t.Y, 0, dur) { EasingFunction = ease });
-            }
+            // Animate ghost back to original slot when cancelled (visual feedback)
+            // ghost already removed, just settle original
         }
 
-        if (Grips.TryGetValue(d.Block, out var grip))
+        // Settle siblings back
+        foreach (var b in d.VisibleBlocks)
+        {
+            if (b == block) continue;
+            var t = GetTranslate(b);
+            AnimateTranslateY(t, 0, dur, ease);
+        }
+        // Fade ghost out if we had one (already closed, just no leftover)
+        if (ghostBorder != null)
+        {
+            ghostBorder.BeginAnimation(UIElement.OpacityProperty, null);
+        }
+
+        if (Grips.TryGetValue(block, out var grip))
         {
             grip.Opacity = 1;
             grip.IsHitTestVisible = true;
@@ -464,7 +609,13 @@ public static class BlockLayout
         if (d == null) return;
 
         double currentCenterY;
-        try { currentCenterY = d.BaseY[d.Block] + d.Move.Y + d.Block.ActualHeight / 2.0; }
+        try
+        {
+            if (d.GhostPopup != null)
+                currentCenterY = d.GhostPopup.VerticalOffset + d.GhostH / 2.0;
+            else
+                currentCenterY = d.BaseY[d.Block] + d.Move.Y + d.Block.ActualHeight / 2.0;
+        }
         catch { return; }
 
         var others = d.VisibleBlocks.Where(b => b != d.Block).ToList();
@@ -480,6 +631,7 @@ public static class BlockLayout
         {
             d.CurrentTargetSlot = newSlot;
             AnimateSlots(d);
+            UpdateDropPreview(d);
         }
     }
 
@@ -508,14 +660,188 @@ public static class BlockLayout
             }
 
             var t = GetTranslate(b);
-            GlideTo(t, targetOffset, dur, ease);
+            AnimateTranslateY(t, targetOffset, dur, ease);
         }
+    }
+
+    private static void CreateDropPreview(DragSession d)
+    {
+        try
+        {
+            d.PreviewBlock = new Border
+            {
+                IsHitTestVisible = false,
+                Background = ResourceBrush(d.Panel, "BgCardBrush", Color.FromRgb(21, 27, 34), 0.24),
+                BorderBrush = ResourceBrush(d.Panel, "AccentBrush", Color.FromRgb(40, 215, 183), 0.68),
+                BorderThickness = new Thickness(1.5),
+                CornerRadius = new CornerRadius(10),
+                Opacity = 0.62,
+                Effect = null
+            };
+
+            d.PreviewPopup = new Popup
+            {
+                AllowsTransparency = true,
+                IsHitTestVisible = false,
+                Placement = PlacementMode.Relative,
+                PlacementTarget = d.Panel,
+                Child = d.PreviewBlock,
+                StaysOpen = true,
+                IsOpen = true
+            };
+        }
+        catch { }
+    }
+
+    private static void UpdateDropPreview(DragSession d)
+    {
+        if (d.PreviewPopup == null || d.PreviewBlock == null) return;
+
+        try
+        {
+            double y = PreviewY(d);
+            double x = 0;
+            double width = d.Panel.ActualWidth;
+
+            try
+            {
+                var blockPos = d.Block.TranslatePoint(new Point(0, 0), d.Panel);
+                x = Math.Max(0, blockPos.X);
+                if (d.Block.ActualWidth > 0)
+                    width = Math.Min(d.Block.ActualWidth, Math.Max(0, d.Panel.ActualWidth - x));
+            }
+            catch { }
+
+            Rect visible = VisiblePanelRect(d);
+            const double minHeight = 18;
+            const double minWidth = 32;
+
+            x = Math.Clamp(x, visible.Left, Math.Max(visible.Left, visible.Right - minWidth));
+            width = Math.Min(width, Math.Max(minWidth, visible.Right - x));
+
+            double desiredHeight = Math.Max(24, d.Block.ActualHeight);
+            double previewHeight = Math.Min(desiredHeight, visible.Height);
+            y = Math.Clamp(y, visible.Top, Math.Max(visible.Top, visible.Bottom - previewHeight));
+            previewHeight = Math.Min(previewHeight, Math.Max(minHeight, visible.Bottom - y));
+
+            d.PreviewBlock.Width = Math.Max(1, width);
+            d.PreviewBlock.Height = Math.Max(1, previewHeight);
+            d.PreviewPopup.HorizontalOffset = x;
+            d.PreviewPopup.VerticalOffset = y;
+        }
+        catch { }
+    }
+
+    private static Rect VisiblePanelRect(DragSession d)
+    {
+        double left = 0;
+        double top = 0;
+        double right = Math.Max(1, d.Panel.ActualWidth);
+        double bottom = Math.Max(1, d.Panel.ActualHeight);
+
+        if (d.Scroller != null && d.Scroller.ViewportWidth > 0 && d.Scroller.ViewportHeight > 0)
+        {
+            try
+            {
+                var tl = d.Scroller.TranslatePoint(new Point(0, 0), d.Panel);
+                var br = d.Scroller.TranslatePoint(
+                    new Point(d.Scroller.ViewportWidth, d.Scroller.ViewportHeight), d.Panel);
+
+                left = Math.Max(left, tl.X);
+                top = Math.Max(top, tl.Y);
+                right = Math.Min(right, br.X);
+                bottom = Math.Min(bottom, br.Y);
+            }
+            catch { }
+        }
+
+        if (right <= left) right = left + Math.Max(1, d.Panel.ActualWidth);
+        if (bottom <= top) bottom = top + Math.Max(1, Math.Min(d.Panel.ActualHeight, d.Block.ActualHeight));
+
+        return new Rect(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
+    }
+
+    private static double PreviewY(DragSession d)
+    {
+        var others = d.VisibleBlocks.Where(b => b != d.Block).ToList();
+        if (others.Count == 0 || !d.BaseY.TryGetValue(d.Block, out var draggedY))
+            return 0;
+
+        if (d.CurrentTargetSlot == d.OrigSlot)
+            return draggedY;
+
+        FrameworkElement anchor;
+        if (d.CurrentTargetSlot > d.OrigSlot)
+        {
+            int index = Math.Clamp(d.CurrentTargetSlot - 1, 0, others.Count - 1);
+            anchor = others[index];
+        }
+        else
+        {
+            int index = Math.Clamp(d.CurrentTargetSlot, 0, others.Count - 1);
+            anchor = others[index];
+        }
+
+        return d.BaseY.TryGetValue(anchor, out var y) ? y : draggedY;
+    }
+
+    private static void RemoveDropPreview(DragSession d)
+    {
+        try
+        {
+            if (d.PreviewPopup != null)
+            {
+                d.PreviewPopup.IsOpen = false;
+                d.PreviewPopup.Child = null;
+            }
+        }
+        catch { }
+        d.PreviewPopup = null;
+        d.PreviewBlock = null;
+    }
+
+    private static Brush ResourceBrush(FrameworkElement owner, string key, Color fallback, double opacity)
+    {
+        Brush brush = owner.TryFindResource(key) is Brush resource
+            ? resource.CloneCurrentValue()
+            : new SolidColorBrush(fallback);
+        brush.Opacity = opacity;
+        if (brush.CanFreeze) brush.Freeze();
+        return brush;
+    }
+
+    private static void AnimateTranslateY(TranslateTransform t, double toY, TimeSpan dur, EasingFunctionBase ease)
+    {
+        double fromY = t.Y;
+        t.BeginAnimation(TranslateTransform.YProperty, null);
+
+        var anim = new DoubleAnimation(fromY, toY, dur) { EasingFunction = ease };
+        anim.Completed += (_, _) =>
+        {
+            t.BeginAnimation(TranslateTransform.YProperty, null);
+            t.Y = toY;
+        };
+        t.BeginAnimation(TranslateTransform.YProperty, anim, HandoffBehavior.SnapshotAndReplace);
+    }
+
+    private static void AnimateTranslateX(TranslateTransform t, double toX, TimeSpan dur, EasingFunctionBase ease)
+    {
+        double fromX = t.X;
+        t.BeginAnimation(TranslateTransform.XProperty, null);
+
+        var anim = new DoubleAnimation(fromX, toX, dur) { EasingFunction = ease };
+        anim.Completed += (_, _) =>
+        {
+            t.BeginAnimation(TranslateTransform.XProperty, null);
+            t.X = toX;
+        };
+        t.BeginAnimation(TranslateTransform.XProperty, anim, HandoffBehavior.SnapshotAndReplace);
     }
 
     private static void GlideTo(TranslateTransform t, double fromY, TimeSpan? dur = null, EasingFunctionBase? ease = null)
     {
         t.BeginAnimation(TranslateTransform.YProperty, null);
-        t.Y = fromY;
+        t.Y = 0;
         t.BeginAnimation(TranslateTransform.YProperty,
             new DoubleAnimation(fromY, 0, dur ?? TimeSpan.FromMilliseconds(GlideMs))
             { EasingFunction = ease ?? new CubicEase { EasingMode = EasingMode.EaseOut } });
@@ -590,6 +916,35 @@ public static class BlockLayout
             d.Scroller.ScrollToVerticalOffset(Math.Min(d.Scroller.ScrollableHeight, d.Scroller.VerticalOffset + step));
         else return;
         UpdateSlot();
+    }
+
+    private static void DragTimerTick()
+    {
+        if (_drag == null) return;
+        if (Mouse.LeftButton != MouseButtonState.Pressed)
+        {
+            CommitDrag();
+            return;
+        }
+
+        TrackPointerDrag();
+        AutoScrollTick();
+    }
+
+    private static void TrackPointerDrag()
+    {
+        var d = _drag;
+        if (d == null) return;
+
+        try { DragMoveTo(CurrentPointerPosition(d.Panel)); }
+        catch { }
+    }
+
+    private static Point CurrentPointerPosition(StackPanel panel)
+    {
+        if (GetCursorPos(out var p))
+            return panel.PointFromScreen(new Point(p.X, p.Y));
+        return Mouse.GetPosition(panel);
     }
 
     private static T? FindParent<T>(DependencyObject? d) where T : DependencyObject

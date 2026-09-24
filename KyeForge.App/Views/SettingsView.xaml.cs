@@ -48,10 +48,110 @@ public partial class SettingsView : UserControl
         UpdateBlurLabel();
 
         Loc.LanguageChanged += RefreshLanguageItems;
+        Loc.LanguageChanged += RefreshUpdateUi;
         Customization.Changed += () => UpdateNavPositionSelection(_settings.SidebarPosition);
+        UpdateChecker.Checked += OnUpdateChecked;
         UpdateNavPositionSelection(_settings.SidebarPosition);
+        RefreshUpdateUi();
+        if (UpdateChecker.HasChecked)
+            OnUpdateChecked(UpdateChecker.LastResult);
         _initDone = true;
     }
+
+    private void RefreshUpdateUi()
+    {
+        if (UpdateCurrentText == null) return;
+        UpdateCurrentText.Text = Loc.T("t_updates_current", UpdateChecker.LocalVersion);
+        if (!UpdateChecker.HasChecked)
+        {
+            UpdateStatusText.Text = "";
+            UpdateNotesHeader.Visibility = Visibility.Collapsed;
+            UpdateNotesCard.Visibility = Visibility.Collapsed;
+            BtnOpenRelease.Visibility = Visibility.Collapsed;
+            return;
+        }
+        ApplyUpdateResult(UpdateChecker.LastResult, error: UpdateChecker.LastResult is null);
+    }
+
+    private void OnUpdateChecked(UpdateInfo? info)
+    {
+        if (!IsLoaded && UpdateStatusText == null) return;
+        ApplyUpdateResult(info, error: info is null && UpdateChecker.HasChecked);
+    }
+
+    private void ApplyUpdateResult(UpdateInfo? info, bool error)
+    {
+        if (UpdateStatusText == null) return;
+
+        if (error)
+        {
+            UpdateStatusText.SetResourceReference(TextBlock.TextProperty, "t_updates_error");
+            UpdateStatusText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            UpdateNotesHeader.Visibility = Visibility.Collapsed;
+            UpdateNotesCard.Visibility = Visibility.Collapsed;
+            BtnOpenRelease.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        if (info == null)
+        {
+            UpdateStatusText.Text = "";
+            return;
+        }
+
+        if (info.IsNewer)
+        {
+            UpdateStatusText.Text = Loc.T("t_updates_available", info.Version);
+            UpdateStatusText.SetResourceReference(TextBlock.ForegroundProperty, "AccentBrush");
+
+            var notes = UpdateChecker.PlainNotes(info.Body);
+            if (string.IsNullOrWhiteSpace(notes))
+            {
+                UpdateNotesHeader.Visibility = Visibility.Collapsed;
+                UpdateNotesCard.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                UpdateNotesHeader.Visibility = Visibility.Visible;
+                UpdateNotesCard.Visibility = Visibility.Visible;
+                UpdateNotesText.Text = notes;
+            }
+            BtnOpenRelease.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            UpdateStatusText.Text = Loc.T("t_updates_none_named", UpdateChecker.LocalVersion);
+            UpdateStatusText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+            UpdateNotesHeader.Visibility = Visibility.Collapsed;
+            UpdateNotesCard.Visibility = Visibility.Collapsed;
+            // Still allow opening the latest release page.
+            BtnOpenRelease.Visibility = Visibility.Visible;
+        }
+    }
+
+    private async void BtnCheckUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        BtnCheckUpdates.IsEnabled = false;
+        UpdateStatusText.SetResourceReference(TextBlock.TextProperty, "t_updates_checking");
+        UpdateStatusText.SetResourceReference(TextBlock.ForegroundProperty, "TextSecondaryBrush");
+        UpdateNotesHeader.Visibility = Visibility.Collapsed;
+        UpdateNotesCard.Visibility = Visibility.Collapsed;
+        BtnOpenRelease.Visibility = Visibility.Collapsed;
+
+        try
+        {
+            var info = await UpdateChecker.CheckAsync();
+            UpdateChecker.Publish(info);
+            ApplyUpdateResult(info, error: info is null);
+        }
+        finally
+        {
+            BtnCheckUpdates.IsEnabled = true;
+        }
+    }
+
+    private void BtnOpenRelease_Click(object sender, RoutedEventArgs e)
+        => UpdateChecker.OpenRelease(UpdateChecker.LastResult);
 
     private void UpdateNavPositionSelection(string currentPos)
     {
