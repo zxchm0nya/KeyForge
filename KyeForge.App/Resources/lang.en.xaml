@@ -122,6 +122,10 @@
     <sys:String x:Key="t_keytest_matrix">VIA matrix (from loaded config)</sys:String>
     <sys:String x:Key="t_keytest_events">Live HID events</sys:String>
     <sys:String x:Key="t_keytest_no_events">No events yet.</sys:String>
+    <sys:String x:Key="t_keytest_3d">3D layout preview</sys:String>
+    <sys:String x:Key="t_keytest_3d_hint">Drag to orbit, wheel to zoom</sys:String>
+    <sys:String x:Key="t_keytest_chatter">Chatter: {0} ({1} ms), total {2}</sys:String>
+    <sys:String x:Key="t_keytest_chatter_hint">Key re-triggered faster than 16 ms after release — likely switch chatter.</sys:String>
 
     <!-- ============ Settings ============ -->
     <sys:String x:Key="t_settings_title">Settings</sys:String>
@@ -136,6 +140,34 @@
     <sys:String x:Key="t_settings_about">About</sys:String>
     <sys:String x:Key="t_settings_version">Version {0}</sys:String>
     <sys:String x:Key="t_settings_about_text">A desktop configurator for VIA-compatible keyboards. Load a VIA definition, remap keys, tune lighting and test every switch.</sys:String>
+
+    <!-- ============ Theme ============ -->
+    <sys:String x:Key="t_settings_theme">Theme</sys:String>
+    <sys:String x:Key="t_theme_dark">Dark</sys:String>
+    <sys:String x:Key="t_theme_light">Light</sys:String>
+
+    <!-- ============ Logs / diagnostics ============ -->
+    <sys:String x:Key="t_settings_logs">Logs &amp; diagnostics</sys:String>
+    <sys:String x:Key="t_settings_export_log">Export log for GitHub</sys:String>
+    <sys:String x:Key="t_settings_export_log_hint">Zips recent logs — attach the file to a GitHub issue.</sys:String>
+    <sys:String x:Key="t_settings_export_log_ok">Log saved: {0}</sys:String>
+    <sys:String x:Key="t_settings_export_log_fail">Could not export the log.</sys:String>
+
+    <!-- ============ App profiles ============ -->
+    <sys:String x:Key="t_settings_profiles">Per-app profiles</sys:String>
+    <sys:String x:Key="t_settings_profiles_hint">Switch the lighting profile automatically when the foreground window changes (game, browser, editor…).</sys:String>
+    <sys:String x:Key="t_settings_profiles_add">Add from running apps</sys:String>
+    <sys:String x:Key="t_settings_profiles_empty">No profiles yet.</sys:String>
+    <sys:String x:Key="t_settings_profiles_current">Active: {0}</sys:String>
+    <sys:String x:Key="t_settings_profiles_remove">Remove</sys:String>
+    <sys:String x:Key="t_settings_profiles_proc">Process</sys:String>
+
+    <!-- ============ Plugins ============ -->
+    <sys:String x:Key="t_settings_plugins">Plugins</sys:String>
+    <sys:String x:Key="t_settings_plugins_hint">DLLs from the plugins folder load at startup. Drop a .dll implementing IKeyForgePlugin.</sys:String>
+    <sys:String x:Key="t_settings_plugins_none">No plugins found.</sys:String>
+    <sys:String x:Key="t_settings_plugins_open">Open plugins folder</sys:String>
+    <sys:String x:Key="t_settings_plugins_count">Plugins loaded: {0}</sys:String>
 
     <!-- ============ About dialog ============ -->
     <sys:String x:Key="t_about_title">About KeyForge</sys:String>

@@ -55,7 +55,172 @@ public partial class SettingsView : UserControl
         RefreshUpdateUi();
         if (UpdateChecker.HasChecked)
             OnUpdateChecked(UpdateChecker.LastResult);
+
+        // Theme radios
+        if (_settings.Theme == "light") RadioThemeLight.IsChecked = true;
+        else RadioThemeDark.IsChecked = true;
+
+        // Profiles + plugins
+        AppProfileWatcher.ProfileChanged += OnProfileChanged;
+        RebuildProfileList();
+        PluginStatusText.Text = KyeForge.App.Plugins.PluginHost.Plugins.Count == 0
+            ? Loc.T("t_settings_plugins_none")
+            : Loc.T("t_settings_plugins_count", KyeForge.App.Plugins.PluginHost.Plugins.Count);
+
         _initDone = true;
+    }
+
+    private void ThemeRadio_Checked(object sender, RoutedEventArgs e)
+    {
+        if (!_initDone) return;
+        var theme = RadioThemeLight.IsChecked == true ? "light" : "dark";
+        if (_settings.Theme == theme) return;
+        _settings.Theme = theme;
+        _settings.Save();
+        Customization.SetTheme(theme);
+    }
+
+    private void BtnExportLog_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var zip = AppLog.ExportArchive();
+            if (string.IsNullOrEmpty(zip))
+            {
+                ExportLogStatus.Text = Loc.T("t_settings_export_log_fail");
+                ExportLogStatus.SetResourceReference(TextBlock.ForegroundProperty, "DangerBrush");
+            }
+            else
+            {
+                ExportLogStatus.Text = Loc.T("t_settings_export_log_ok", zip);
+                ExportLogStatus.SetResourceReference(TextBlock.ForegroundProperty, "SuccessBrush");
+                // Open Explorer with the zip selected so the user can drag it into GitHub.
+                System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{zip}\"");
+            }
+            ExportLogStatus.Visibility = Visibility.Visible;
+        }
+        catch
+        {
+            ExportLogStatus.Text = Loc.T("t_settings_export_log_fail");
+            ExportLogStatus.SetResourceReference(TextBlock.ForegroundProperty, "DangerBrush");
+            ExportLogStatus.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void OnProfileChanged(AppProfile? profile)
+    {
+        if (ProfileActiveText == null) return;
+        if (profile == null)
+        {
+            ProfileActiveText.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            ProfileActiveText.Text = Loc.T("t_settings_profiles_current", profile.Name);
+            ProfileActiveText.Visibility = Visibility.Visible;
+        }
+    }
+
+    private void RebuildProfileList()
+    {
+        ProfileList.Children.Clear();
+        var profiles = AppProfileWatcher.Profiles.OrderBy(p => p.ProcessName).ToList();
+        ProfileEmptyText.Visibility = profiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        foreach (var p in profiles)
+        {
+            var row = new Grid { Margin = new Thickness(0, 4, 0, 0) };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var label = new TextBlock
+            {
+                Text = $"{p.ProcessName} — {p.Name}",
+                Style = (Style)FindResource("SubText"),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(label, 0);
+            row.Children.Add(label);
+
+            var removeBtn = new Button
+            {
+                Content = Loc.T("t_settings_profiles_remove"),
+                Style = (Style)FindResource("SecondaryButton"),
+                Height = 30,
+                Padding = new Thickness(10, 4, 10, 4),
+                Tag = p.ProcessName
+            };
+            removeBtn.Click += (_, _) =>
+            {
+                if (removeBtn.Tag is string proc)
+                {
+                    AppProfileWatcher.Remove(proc);
+                    RebuildProfileList();
+                }
+            };
+            Grid.SetColumn(removeBtn, 1);
+            row.Children.Add(removeBtn);
+
+            ProfileList.Children.Add(row);
+        }
+    }
+
+    private void BtnAddProfile_Click(object sender, RoutedEventArgs e)
+    {
+        // List running user processes (exclude system/pids we can't open).
+        var running = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var proc in System.Diagnostics.Process.GetProcesses())
+        {
+            try
+            {
+                if (proc.Id == Environment.ProcessId) continue;
+                var name = proc.ProcessName;
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                if (name.Equals("System", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("Idle", StringComparison.OrdinalIgnoreCase)) continue;
+                running.Add(name);
+            }
+            catch { }
+            finally { proc.Dispose(); }
+        }
+
+        // Remove ones already mapped.
+        foreach (var existing in AppProfileWatcher.Profiles)
+            running.Remove(existing.ProcessName);
+
+        if (running.Count == 0) return;
+
+        var win = Window.GetWindow(this);
+        var dlg = new ProfilePickerDialog(running.OrderBy(n => n).ToList())
+        {
+            Owner = win is { IsLoaded: true } ? win : null
+        };
+        if (dlg.ShowDialog() == true && dlg.SelectedProcess != null)
+        {
+            // Capture current lighting as the profile's starting point.
+            var s = AppSettings.Load();
+            AppProfileWatcher.AddOrUpdate(new AppProfile
+            {
+                ProcessName = dlg.SelectedProcess,
+                Name = dlg.ProfileName,
+                LightingEffect = s.LightingEffect,
+                LightingBrightness = s.LightingBrightness,
+                LightingSpeed = s.LightingSpeed,
+                LightingColor = s.LightingColor
+            });
+            RebuildProfileList();
+        }
+    }
+
+    private void BtnOpenPlugins_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dir = KyeForge.App.Plugins.PluginHost.PluginsDirectory;
+            System.IO.Directory.CreateDirectory(dir);
+            System.Diagnostics.Process.Start("explorer.exe", dir);
+        }
+        catch { }
     }
 
     private void RefreshUpdateUi()

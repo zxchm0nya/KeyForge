@@ -25,6 +25,8 @@ public class AppSettings
     public string SidebarPosition { get; set; } = "Left";
 
     // ---- Appearance customization (empty = theme default) ----
+    /// <summary>UI theme: "dark" (default) or "light".</summary>
+    public string Theme { get; set; } = "dark";
     public string AccentColor { get; set; } = "";
     public string BgColor { get; set; } = "";
     public string PanelColor { get; set; } = "";

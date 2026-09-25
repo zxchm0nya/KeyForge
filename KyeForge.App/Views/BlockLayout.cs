@@ -499,14 +499,17 @@ public static class BlockLayout
         if (d.Window != null) d.Window.PreviewKeyDown -= EscHandler;
         RemoveDropPreview(d);
 
-        // Remove ghost (top-most popup)
+        // Remove ghost (top-most popup), remembering where it was released so
+        // the real block can snap in from that exact point.
         Popup? ghost = d.GhostPopup;
-        Border? ghostBorder = d.GhostBorder;
         d.GhostPopup = null;
         d.GhostBorder = null;
         d.GhostImage = null;
+        double ghostTop = 0;
+        bool hasGhost = ghost != null;
         if (ghost != null)
         {
+            try { ghostTop = ghost.VerticalOffset; } catch { hasGhost = false; }
             try { ghost.IsOpen = false; ghost.Child = null; } catch { }
         }
 
@@ -518,7 +521,6 @@ public static class BlockLayout
         block.RenderTransform = null;
         Panel.SetZIndex(block, 0);
 
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var dur = TimeSpan.FromMilliseconds(SettleMs);
 
         if (commit && d.CurrentTargetSlot != d.OrigSlot)
@@ -540,23 +542,33 @@ public static class BlockLayout
             panel.Children.Insert(Math.Min(childIdx, panel.Children.Count), block);
             SaveOrder(d.PageId, panel);
         }
-        else if (ghostBorder != null)
-        {
-            // Animate ghost back to original slot when cancelled (visual feedback)
-            // ghost already removed, just settle original
-        }
 
-        // Settle siblings back
+        // Settle siblings back with a springy overshoot so slots snap into place.
+        var snapEase = new BackEase { Amplitude = 0.4, EasingMode = EasingMode.EaseOut };
         foreach (var b in d.VisibleBlocks)
         {
             if (b == block) continue;
             var t = GetTranslate(b);
-            AnimateTranslateY(t, 0, dur, ease);
+            AnimateTranslateY(t, 0, dur, snapEase);
         }
-        // Fade ghost out if we had one (already closed, just no leftover)
-        if (ghostBorder != null)
+
+        // Snap-in: the block starts at the ghost's release point and eases into
+        // its final slot with a slight overshoot — reads as a physical settle.
+        if (hasGhost)
         {
-            ghostBorder.BeginAnimation(UIElement.OpacityProperty, null);
+            try
+            {
+                d.Panel.UpdateLayout();
+                double finalY = block.TranslatePoint(new Point(0, 0), d.Panel).Y;
+                double delta = ghostTop - finalY;
+                if (Math.Abs(delta) > 0.5)
+                {
+                    var shift = new TranslateTransform(0, delta);
+                    block.RenderTransform = shift;
+                    AnimateTranslateY(shift, 0, dur, snapEase);
+                }
+            }
+            catch { block.RenderTransform = null; }
         }
 
         if (Grips.TryGetValue(block, out var grip))

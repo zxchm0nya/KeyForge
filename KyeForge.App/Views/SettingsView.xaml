@@ -381,6 +381,87 @@
                 </StackPanel>
             </Grid>
 
+            <!-- Theme -->
+            <Grid views:BlockLayout.BlockId="settings.theme" Background="Transparent">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_theme}" Margin="4,0,0,8" />
+                    <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="RadioThemeDark" GroupName="theme"
+                                         Content="{DynamicResource t_theme_dark}"
+                                         Checked="ThemeRadio_Checked" Margin="0,0,18,0"
+                                         VerticalAlignment="Center" />
+                            <RadioButton x:Name="RadioThemeLight" GroupName="theme"
+                                         Content="{DynamicResource t_theme_light}"
+                                         Checked="ThemeRadio_Checked"
+                                         VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- Logs -->
+            <Grid views:BlockLayout.BlockId="settings.logs" Background="Transparent">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_logs}" Margin="4,0,0,8" />
+                    <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SubText}" TextWrapping="Wrap"
+                                       Text="{DynamicResource t_settings_export_log_hint}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button x:Name="BtnExportLog" Style="{StaticResource SecondaryButton}"
+                                        Content="{DynamicResource t_settings_export_log}"
+                                        Click="BtnExportLog_Click" />
+                            </StackPanel>
+                            <TextBlock x:Name="ExportLogStatus" Style="{StaticResource MutedText}"
+                                       Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- Per-app profiles -->
+            <Grid views:BlockLayout.BlockId="settings.profiles" Background="Transparent">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_profiles}" Margin="4,0,0,8" />
+                    <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SubText}" TextWrapping="Wrap"
+                                       Text="{DynamicResource t_settings_profiles_hint}" />
+                            <TextBlock x:Name="ProfileActiveText" Style="{StaticResource MutedText}"
+                                       Margin="0,8,0,0" Visibility="Collapsed" />
+                            <StackPanel x:Name="ProfileList" Margin="0,10,0,0" />
+                            <TextBlock x:Name="ProfileEmptyText" Style="{StaticResource MutedText}"
+                                       Margin="0,8,0,0" Text="{DynamicResource t_settings_profiles_empty}"
+                                       Visibility="Collapsed" />
+                            <Button x:Name="BtnAddProfile" Style="{StaticResource SecondaryButton}"
+                                    Content="{DynamicResource t_settings_profiles_add}"
+                                    HorizontalAlignment="Left" Margin="0,12,0,0"
+                                    Click="BtnAddProfile_Click" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <!-- Plugins -->
+            <Grid views:BlockLayout.BlockId="settings.plugins" Background="Transparent">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_settings_plugins}" Margin="4,0,0,8" />
+                    <Border Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SubText}" TextWrapping="Wrap"
+                                       Text="{DynamicResource t_settings_plugins_hint}" />
+                            <TextBlock x:Name="PluginStatusText" Style="{StaticResource MutedText}"
+                                       Margin="0,8,0,0" />
+                            <Button x:Name="BtnOpenPlugins" Style="{StaticResource SecondaryButton}"
+                                    Content="{DynamicResource t_settings_plugins_open}"
+                                    HorizontalAlignment="Left" Margin="0,12,0,0"
+                                    Click="BtnOpenPlugins_Click" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
             <Grid views:BlockLayout.BlockId="settings.about" Background="Transparent">
                 <StackPanel>
                     <!-- About -->

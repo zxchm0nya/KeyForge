@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -18,6 +19,16 @@ public partial class KeyTestView : UserControl
     private readonly HashSet<int> _pressed = new();
     private readonly HashSet<int> _hidPressed = new();
     private int _pressCount;
+
+    // ---- Chatter / debounce detection ----
+    // A "chatter" event = key goes down→up→down again faster than ChatterThresholdMs.
+    private const int ChatterThresholdMs = 16;
+    private readonly Dictionary<int, long> _lastDownTicks = new();
+    private readonly Dictionary<int, long> _lastUpTicks = new();
+    private readonly HashSet<int> _chatterKeys = new();
+    private int _chatterCount;
+    private long _chatterWindowStart = Stopwatch.GetTimestamp();
+    private const int ChatterWindowMs = 1000;
 
     private static readonly Brush BoardBrush = BrushFrom("#0B1015");
     private static readonly Brush KeyBrush = BrushFrom("#161F27");
@@ -90,6 +101,20 @@ public partial class KeyTestView : UserControl
         TestCanvas.Content = viewbox;
         RepaintAllKeys();
         UpdateCountText();
+        PushPreview3D(keys);
+    }
+
+    private void PushPreview3D(List<TestKey> keys)
+    {
+        try
+        {
+            var k3 = new List<Layout3DView.Key3D>(keys.Count);
+            foreach (var k in keys)
+                k3.Add(new Layout3DView.Key3D(k.Label, k.Usage, k.X, k.Y, k.W, k.H));
+            Preview3D.SetBoard(k3);
+            Preview3D.SetHighlight(_pressed, _tested);
+        }
+        catch { }
     }
 
     private Border CreateKey(TestKey key)
@@ -156,28 +181,67 @@ public partial class KeyTestView : UserControl
 
     private void SetUsageState(int usage, bool isDown, bool countPress = true)
     {
+        var now = Stopwatch.GetTimestamp();
+
         if (isDown)
         {
+            // Chatter check: down shortly after a recent up on the same key.
+            if (_lastUpTicks.TryGetValue(usage, out var upAt))
+            {
+                var dtMs = (now - upAt) * 1000.0 / Stopwatch.Frequency;
+                if (dtMs < ChatterThresholdMs && dtMs >= 0)
+                {
+                    _chatterKeys.Add(usage);
+                    _chatterCount++;
+                    AppLog.Debug($"Chatter on {KeycodeMap.Name((uint)usage)} (USB 0x{usage:X2}): {dtMs:F1} ms between up→down");
+                    UpdateEventLogChatter(usage, dtMs);
+                }
+            }
+            _lastDownTicks[usage] = now;
+
             if (_pressed.Add(usage) && countPress)
             {
                 _tested.Add(usage);
                 _pressCount++;
-                EventLog.Text = $"{KeycodeMap.Name((uint)usage)} / USB 0x{usage:X2}";
+                if (!_chatterKeys.Contains(usage))
+                    EventLog.Text = $"{KeycodeMap.Name((uint)usage)} / USB 0x{usage:X2}";
                 UpdateCountText();
             }
         }
         else
         {
+            _lastUpTicks[usage] = now;
             _pressed.Remove(usage);
         }
 
+        // Expire chatter highlight after ~1s so the board doesn't stay red forever.
+        if (_chatterKeys.Count > 0 &&
+            (now - _chatterWindowStart) * 1000.0 / Stopwatch.Frequency > ChatterWindowMs)
+        {
+            _chatterKeys.Clear();
+            _chatterWindowStart = now;
+            ChatterHintText.Visibility = Visibility.Collapsed;
+            RepaintAllKeys();
+        }
+
         RepaintUsage(usage);
+        Preview3D?.SetHighlight(_pressed, _tested);
+    }
+
+    private void UpdateEventLogChatter(int usage, double dtMs)
+    {
+        var name = KeycodeMap.Name((uint)usage);
+        EventLog.Text = Loc.T("t_keytest_chatter", name, dtMs.ToString("F1"), _chatterCount);
+        EventLog.SetResourceReference(TextBlock.ForegroundProperty, "DangerBrush");
+        ChatterHintText.Visibility = Visibility.Visible;
+        UpdateCountText();
     }
 
     private void RepaintAllKeys()
     {
         foreach (var usage in _usageToKeys.Keys.ToList())
             RepaintUsage(usage);
+        Preview3D?.SetHighlight(_pressed, _tested);
     }
 
     private void RepaintUsage(int usage)
@@ -194,10 +258,23 @@ public partial class KeyTestView : UserControl
 
         foreach (var key in keys)
         {
-            key.Background = isPressed ? accent : isTested ? hover : card;
-            key.BorderBrush = isPressed ? accent : borderStrong;
+            if (isPressed)
+            {
+                key.Background = accent;
+                key.BorderBrush = accent;
+            }
+            else if (_chatterKeys.Contains(usage))
+            {
+                key.SetResourceReference(Border.BackgroundProperty, "DangerBrush");
+                key.SetResourceReference(Border.BorderBrushProperty, "DangerBrush");
+            }
+            else
+            {
+                key.Background = isTested ? hover : card;
+                key.BorderBrush = borderStrong;
+            }
             if (key.Child is TextBlock text)
-                text.Foreground = isPressed ? DarkTextBrush : textPrimary;
+                text.Foreground = (isPressed || _chatterKeys.Contains(usage)) ? DarkTextBrush : textPrimary;
         }
     }
 

@@ -59,10 +59,53 @@ public static class Customization
         ("TextMutedBrush", "#78838E"),
     };
 
+    // Light palette: only surfaces + text; accent stays user-defined.
+    private static readonly (string Key, string Hex)[] LightDefaults =
+    {
+        ("BgDeepBrush", "#F4F6F9"),
+        ("WindowBackgroundBrush", "#F4F6F9"),
+        ("BgPanelBrush", "#EAEef3"),
+        ("BgCardBrush", "#FFFFFF"),
+        ("BgElevatedBrush", "#F7F9FB"),
+        ("BgHoverBrush", "#E8EDF2"),
+        ("BorderBrush", "#D4DAE1"),
+        ("BorderStrongBrush", "#B9C2CC"),
+        ("TextPrimaryBrush", "#111820"),
+        ("TextSecondaryBrush", "#4A5560"),
+        ("TextMutedBrush", "#7A8590"),
+    };
+
+    /// <summary>Current UI theme: "dark" or "light".</summary>
+    public static string Theme { get; private set; } = "dark";
+
+    /// <summary>Switches dark/light palette. Accent keeps the user's color.</summary>
+    public static void SetTheme(string theme)
+    {
+        Theme = theme == "light" ? "light" : "dark";
+        var palette = Theme == "light" ? LightDefaults : Defaults;
+        foreach (var (key, hex) in palette)
+        {
+            if (TryParse(hex, out var c)) SetBrush(key, c);
+        }
+        // Re-apply accent (it derives glow/gradient) after palette swap.
+        if (TryParse(Application.Current?.Resources["AccentBrush"] is SolidColorBrush ab
+            ? Customization.ToHex(ab.Color) : "#28D7B7", out var accent))
+            ApplyAccentInternal(accent);
+        Changed?.Invoke();
+    }
+
     /// <summary>Applies all stored customization from settings.</summary>
     public static void Apply(AppSettings s)
     {
+        Theme = s.Theme == "light" ? "light" : "dark";
         var hasImage = !string.IsNullOrEmpty(s.BackgroundImagePath) && File.Exists(s.BackgroundImagePath);
+
+        // 0. Base palette (dark or light) before user overrides.
+        var basePalette = Theme == "light" ? LightDefaults : Defaults;
+        foreach (var (key, hex) in basePalette)
+        {
+            if (TryParse(hex, out var pc)) SetBrush(key, pc);
+        }
 
         // 1. Accent
         if (TryParse(s.AccentColor, out var accent))

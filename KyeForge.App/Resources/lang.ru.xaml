@@ -122,6 +122,10 @@
     <sys:String x:Key="t_keytest_matrix">Матрица VIA (из загруженного конфига)</sys:String>
     <sys:String x:Key="t_keytest_events">События HID</sys:String>
     <sys:String x:Key="t_keytest_no_events">Событий пока нет.</sys:String>
+    <sys:String x:Key="t_keytest_3d">3D-превью раскладки</sys:String>
+    <sys:String x:Key="t_keytest_3d_hint">Перетащите для вращения, колесо — масштаб</sys:String>
+    <sys:String x:Key="t_keytest_chatter">Дребезг: {0} ({1} мс), всего {2}</sys:String>
+    <sys:String x:Key="t_keytest_chatter_hint">Клавиша сработала быстрее 16 мс после отпускания — вероятный дребезг переключателя.</sys:String>
 
     <!-- ============ Settings ============ -->
     <sys:String x:Key="t_settings_title">Настройки</sys:String>
@@ -136,6 +140,34 @@
     <sys:String x:Key="t_settings_about">О программе</sys:String>
     <sys:String x:Key="t_settings_version">Версия {0}</sys:String>
     <sys:String x:Key="t_settings_about_text">Десктопный конфигуратор для VIA-совместимых клавиатур. Загрузите VIA-определение, переназначьте клавиши, настройте подсветку и проверьте каждый переключатель.</sys:String>
+
+    <!-- ============ Theme ============ -->
+    <sys:String x:Key="t_settings_theme">Тема оформления</sys:String>
+    <sys:String x:Key="t_theme_dark">Тёмная</sys:String>
+    <sys:String x:Key="t_theme_light">Светлая</sys:String>
+
+    <!-- ============ Logs / diagnostics ============ -->
+    <sys:String x:Key="t_settings_logs">Логи и диагностика</sys:String>
+    <sys:String x:Key="t_settings_export_log">Экспортировать лог для GitHub</sys:String>
+    <sys:String x:Key="t_settings_export_log_hint">Упакует последние логи в zip — приложите к issue на GitHub.</sys:String>
+    <sys:String x:Key="t_settings_export_log_ok">Лог сохранён: {0}</sys:String>
+    <sys:String x:Key="t_settings_export_log_fail">Не удалось экспортировать лог.</sys:String>
+
+    <!-- ============ App profiles ============ -->
+    <sys:String x:Key="t_settings_profiles">Профили под приложения</sys:String>
+    <sys:String x:Key="t_settings_profiles_hint">Автоматически переключать профиль подсветки, когда активное окно меняется (например: игра, браузер, редактор).</sys:String>
+    <sys:String x:Key="t_settings_profiles_add">Добавить из запущенных</sys:String>
+    <sys:String x:Key="t_settings_profiles_empty">Профилей пока нет.</sys:String>
+    <sys:String x:Key="t_settings_profiles_current">Сейчас: {0}</sys:String>
+    <sys:String x:Key="t_settings_profiles_remove">Удалить</sys:String>
+    <sys:String x:Key="t_settings_profiles_proc">Процесс</sys:String>
+
+    <!-- ============ Plugins ============ -->
+    <sys:String x:Key="t_settings_plugins">Плагины</sys:String>
+    <sys:String x:Key="t_settings_plugins_hint">DLL из папки plugins загружаются при старте. Положите .dll с реализацией IKeyForgePlugin.</sys:String>
+    <sys:String x:Key="t_settings_plugins_none">Плагинов не найдено.</sys:String>
+    <sys:String x:Key="t_settings_plugins_open">Открыть папку plugins</sys:String>
+    <sys:String x:Key="t_settings_plugins_count">Загружено плагинов: {0}</sys:String>
 
     <!-- ============ About dialog ============ -->
     <sys:String x:Key="t_about_title">О программе KeyForge</sys:String>

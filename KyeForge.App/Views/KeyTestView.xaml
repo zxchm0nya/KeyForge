@@ -19,6 +19,11 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel>
                     <TextBlock Style="{StaticResource CardHeader}" Text="{DynamicResource t_keytest_title}" />
+                    <TextBlock x:Name="ChatterHintText" Style="{StaticResource SubText}"
+                               Text="{DynamicResource t_keytest_chatter_hint}"
+                               TextWrapping="Wrap" Margin="0,4,0,0"
+                               Visibility="Collapsed"
+                               Foreground="{DynamicResource DangerBrush}" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock x:Name="CountText" Text="0" FontSize="20" FontWeight="Bold"
@@ -50,6 +55,13 @@
                                Text="{DynamicResource t_keytest_no_events}"
                                TextWrapping="Wrap" MaxHeight="120" />
                 </Border>
+                    </StackPanel>
+                </Grid>
+
+                <Grid views:BlockLayout.BlockId="keytest.preview3d" Background="Transparent">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_keytest_3d}" Margin="4,14,0,8" />
+                        <views:Layout3DView x:Name="Preview3D" Height="340" />
                     </StackPanel>
                 </Grid>
             </StackPanel>
