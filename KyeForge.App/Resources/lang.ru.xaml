@@ -122,8 +122,6 @@
     <sys:String x:Key="t_keytest_matrix">Матрица VIA (из загруженного конфига)</sys:String>
     <sys:String x:Key="t_keytest_events">События HID</sys:String>
     <sys:String x:Key="t_keytest_no_events">Событий пока нет.</sys:String>
-    <sys:String x:Key="t_keytest_3d">3D-превью раскладки</sys:String>
-    <sys:String x:Key="t_keytest_3d_hint">Перетащите для вращения, колесо — масштаб</sys:String>
     <sys:String x:Key="t_keytest_chatter">Дребезг: {0} ({1} мс), всего {2}</sys:String>
     <sys:String x:Key="t_keytest_chatter_hint">Клавиша сработала быстрее 16 мс после отпускания — вероятный дребезг переключателя.</sys:String>
 

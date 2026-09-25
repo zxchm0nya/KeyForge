@@ -101,20 +101,6 @@ public partial class KeyTestView : UserControl
         TestCanvas.Content = viewbox;
         RepaintAllKeys();
         UpdateCountText();
-        PushPreview3D(keys);
-    }
-
-    private void PushPreview3D(List<TestKey> keys)
-    {
-        try
-        {
-            var k3 = new List<Layout3DView.Key3D>(keys.Count);
-            foreach (var k in keys)
-                k3.Add(new Layout3DView.Key3D(k.Label, k.Usage, k.X, k.Y, k.W, k.H));
-            Preview3D.SetBoard(k3);
-            Preview3D.SetHighlight(_pressed, _tested);
-        }
-        catch { }
     }
 
     private Border CreateKey(TestKey key)
@@ -225,7 +211,6 @@ public partial class KeyTestView : UserControl
         }
 
         RepaintUsage(usage);
-        Preview3D?.SetHighlight(_pressed, _tested);
     }
 
     private void UpdateEventLogChatter(int usage, double dtMs)
@@ -241,7 +226,6 @@ public partial class KeyTestView : UserControl
     {
         foreach (var usage in _usageToKeys.Keys.ToList())
             RepaintUsage(usage);
-        Preview3D?.SetHighlight(_pressed, _tested);
     }
 
     private void RepaintUsage(int usage)

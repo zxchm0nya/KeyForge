@@ -89,7 +89,7 @@ if ($LASTEXITCODE -ne 0) { throw "Installer publish failed with exit code $LASTE
 $setupExe = Join-Path $setupDir "KyeForgeSetup.exe"
 if (-not (Test-Path $setupExe)) { throw "Installer publish failed" }
 
-$finalSetup = Join-Path $dist "KyeForge-Setup-1.0.2.exe"
+$finalSetup = Join-Path $dist "KyeForge-Setup-1.0.3.exe"
 Copy-Item $setupExe $finalSetup -Force
 Remove-Item $setupDir -Recurse -Force
 

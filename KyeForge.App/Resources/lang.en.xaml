@@ -122,8 +122,6 @@
     <sys:String x:Key="t_keytest_matrix">VIA matrix (from loaded config)</sys:String>
     <sys:String x:Key="t_keytest_events">Live HID events</sys:String>
     <sys:String x:Key="t_keytest_no_events">No events yet.</sys:String>
-    <sys:String x:Key="t_keytest_3d">3D layout preview</sys:String>
-    <sys:String x:Key="t_keytest_3d_hint">Drag to orbit, wheel to zoom</sys:String>
     <sys:String x:Key="t_keytest_chatter">Chatter: {0} ({1} ms), total {2}</sys:String>
     <sys:String x:Key="t_keytest_chatter_hint">Key re-triggered faster than 16 ms after release — likely switch chatter.</sys:String>
 

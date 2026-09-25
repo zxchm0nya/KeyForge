@@ -55,15 +55,8 @@
                                Text="{DynamicResource t_keytest_no_events}"
                                TextWrapping="Wrap" MaxHeight="120" />
                 </Border>
-                    </StackPanel>
-                </Grid>
-
-                <Grid views:BlockLayout.BlockId="keytest.preview3d" Background="Transparent">
-                    <StackPanel>
-                        <TextBlock Style="{StaticResource SectionTitle}" Text="{DynamicResource t_keytest_3d}" Margin="4,14,0,8" />
-                        <views:Layout3DView x:Name="Preview3D" Height="340" />
-                    </StackPanel>
-                </Grid>
+            </StackPanel>
+        </Grid>
             </StackPanel>
         </ScrollViewer>
     </Grid>
