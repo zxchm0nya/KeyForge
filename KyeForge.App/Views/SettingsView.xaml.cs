@@ -77,7 +77,8 @@ public partial class SettingsView : UserControl
         if (_settings.Theme == theme) return;
         _settings.Theme = theme;
         _settings.Save();
-        Customization.SetTheme(theme);
+        Customization.SetTheme(_settings, animate: true);
+        RefreshChips();
     }
 
     private void BtnExportLog_Click(object sender, RoutedEventArgs e)
@@ -382,7 +383,7 @@ public partial class SettingsView : UserControl
         {
             _settings.AccentColor = hex;
             _settings.Save();
-            Customization.ApplyAccent(c);
+            Customization.ApplyAccent(c, animate: true);
             RefreshChips();
         }
     }
@@ -391,11 +392,11 @@ public partial class SettingsView : UserControl
 
     private void RefreshChips()
     {
-        SetChip(AccentChip, _settings.AccentColor, "#28D7B7");
-        SetChip(BgChip, _settings.BgColor, "#090B0F");
-        SetChip(PanelChip, _settings.PanelColor, "#101419");
-        SetChip(CardChip, _settings.CardColor, "#151B22");
-        SetChip(TextChip, _settings.TextColor, "#F3F5FA");
+        SetChip(AccentChip, _settings.AccentColor, Customization.PaletteHex("AccentBrush"));
+        SetChip(BgChip, _settings.BgColor, Customization.PaletteHex("BgDeepBrush"));
+        SetChip(PanelChip, _settings.PanelColor, Customization.PaletteHex("BgPanelBrush"));
+        SetChip(CardChip, _settings.CardColor, Customization.PaletteHex("BgCardBrush"));
+        SetChip(TextChip, _settings.TextColor, Customization.PaletteHex("TextPrimaryBrush"));
     }
 
     private static void SetChip(Border chip, string custom, string fallback)
@@ -424,11 +425,11 @@ public partial class SettingsView : UserControl
         };
         var fallback = slot switch
         {
-            "accent" => "#28D7B7",
-            "bg" => "#090B0F",
-            "panel" => "#101419",
-            "card" => "#151B22",
-            "text" => "#F3F5FA",
+            "accent" => Customization.PaletteHex("AccentBrush"),
+            "bg" => Customization.PaletteHex("BgDeepBrush"),
+            "panel" => Customization.PaletteHex("BgPanelBrush"),
+            "card" => Customization.PaletteHex("BgCardBrush"),
+            "text" => Customization.PaletteHex("TextPrimaryBrush"),
             _ => "#FFFFFF"
         };
 
@@ -452,7 +453,7 @@ public partial class SettingsView : UserControl
             case "text": _settings.TextColor = hex; break;
         }
         _settings.Save();
-        Customization.Apply(_settings);
+        Customization.Apply(_settings, animate: true);
         RefreshChips();
     }
 
@@ -469,7 +470,7 @@ public partial class SettingsView : UserControl
         _settings.BackgroundDim = 55;
         _settings.BackgroundBlur = 0;
         _settings.Save();
-        Customization.ResetColors();
+        Customization.Apply(_settings, animate: true);
         DimSlider.Value = _settings.BackgroundDim;
         BlurSlider.Value = _settings.BackgroundBlur;
         RefreshChips();
@@ -491,14 +492,14 @@ public partial class SettingsView : UserControl
 
         _settings.BackgroundImagePath = dlg.FileName;
         _settings.Save();
-        Customization.Apply(_settings);
+        Customization.Apply(_settings, animate: true);
     }
 
     private void BtnClearImage_Click(object sender, RoutedEventArgs e)
     {
         _settings.BackgroundImagePath = "";
         _settings.Save();
-        Customization.Apply(_settings);
+        Customization.Apply(_settings, animate: true);
     }
 
     private void DimSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

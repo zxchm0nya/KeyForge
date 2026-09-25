@@ -1,13 +1,15 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 
 namespace KyeForge.App.Services;
 
 /// <summary>
 /// Live theme customization: updates shared brush instances from Themes/Colors.xaml
-/// so every DynamicResource reference in the app updates instantly. Also broadcasts
-/// changes (background image etc.) via <see cref="Changed"/>.
+/// so every DynamicResource (and StaticResource) reference in the app updates instantly.
+/// Brush color changes can be animated for a smooth theme/color transition.
+/// Also broadcasts changes (background image etc.) via <see cref="Changed"/>.
 /// </summary>
 public static class Customization
 {
@@ -64,7 +66,7 @@ public static class Customization
     {
         ("BgDeepBrush", "#F4F6F9"),
         ("WindowBackgroundBrush", "#F4F6F9"),
-        ("BgPanelBrush", "#EAEef3"),
+        ("BgPanelBrush", "#EAEEF3"),
         ("BgCardBrush", "#FFFFFF"),
         ("BgElevatedBrush", "#F7F9FB"),
         ("BgHoverBrush", "#E8EDF2"),
@@ -75,27 +77,43 @@ public static class Customization
         ("TextMutedBrush", "#7A8590"),
     };
 
+    private static readonly Duration Transition = new Duration(TimeSpan.FromMilliseconds(450));
+    private static readonly IEasingFunction TransitionEase =
+        new CubicEase { EasingMode = EasingMode.EaseInOut };
+
     /// <summary>Current UI theme: "dark" or "light".</summary>
     public static string Theme { get; private set; } = "dark";
 
-    /// <summary>Switches dark/light palette. Accent keeps the user's color.</summary>
-    public static void SetTheme(string theme)
+    private static (string Key, string Hex)[] CurrentPalette =>
+        Theme == "light" ? LightDefaults : Defaults;
+
+    /// <summary>Palette hex for a brush key in the current theme (falls back to dark, then white).</summary>
+    public static string PaletteHex(string key)
     {
-        Theme = theme == "light" ? "light" : "dark";
-        var palette = Theme == "light" ? LightDefaults : Defaults;
-        foreach (var (key, hex) in palette)
-        {
-            if (TryParse(hex, out var c)) SetBrush(key, c);
-        }
-        // Re-apply accent (it derives glow/gradient) after palette swap.
-        if (TryParse(Application.Current?.Resources["AccentBrush"] is SolidColorBrush ab
-            ? Customization.ToHex(ab.Color) : "#28D7B7", out var accent))
-            ApplyAccentInternal(accent);
-        Changed?.Invoke();
+        foreach (var (k, hex) in CurrentPalette)
+            if (string.Equals(k, key, StringComparison.OrdinalIgnoreCase))
+                return hex;
+        foreach (var (k, hex) in Defaults)
+            if (string.Equals(k, key, StringComparison.OrdinalIgnoreCase))
+                return hex;
+        return "#FFFFFF";
     }
 
+    private static Color Pal(string key, Color fallback)
+    {
+        foreach (var (k, hex) in CurrentPalette)
+            if (string.Equals(k, key, StringComparison.OrdinalIgnoreCase) && TryParse(hex, out var c))
+                return c;
+        return fallback;
+    }
+
+    /// <summary>Switches theme from stored settings, keeping user custom colors (animated by default).</summary>
+    public static void SetTheme(AppSettings s, bool animate = true) => Apply(s, animate);
+
     /// <summary>Applies all stored customization from settings.</summary>
-    public static void Apply(AppSettings s)
+    /// <param name="s">Settings to apply.</param>
+    /// <param name="animate">Animate brush color transitions instead of snapping.</param>
+    public static void Apply(AppSettings s, bool animate = false)
     {
         Theme = s.Theme == "light" ? "light" : "dark";
         var hasImage = !string.IsNullOrEmpty(s.BackgroundImagePath) && File.Exists(s.BackgroundImagePath);
@@ -104,51 +122,62 @@ public static class Customization
         var basePalette = Theme == "light" ? LightDefaults : Defaults;
         foreach (var (key, hex) in basePalette)
         {
-            if (TryParse(hex, out var pc)) SetBrush(key, pc);
+            if (TryParse(hex, out var pc)) SetBrush(key, pc, animate);
         }
 
         // 1. Accent
         if (TryParse(s.AccentColor, out var accent))
-            ApplyAccentInternal(accent);
+            ApplyAccentInternal(accent, animate);
         else if (TryParse("#28D7B7", out var defAccent))
-            ApplyAccentInternal(defAccent);
+            ApplyAccentInternal(defAccent, animate);
 
         // 2. Bg (Window background / deep canvas background)
-        var bg = TryParse(s.BgColor, out var customBg) ? customBg : Color.FromRgb(0x09, 0x0B, 0x0F);
-        SetBrush("BgDeepBrush", hasImage ? Color.FromArgb(0x30, bg.R, bg.G, bg.B) : bg);
-        SetBrush("WindowBackgroundBrush", bg);
+        var bg = TryParse(s.BgColor, out var customBg)
+            ? customBg
+            : Pal("BgDeepBrush", Color.FromRgb(0x09, 0x0B, 0x0F));
+        SetBrush("BgDeepBrush", hasImage ? WithAlpha(bg, 0x30) : bg, animate);
+        SetBrush("WindowBackgroundBrush", bg, animate);
 
         // 3. Panel (Sidebar, headers, large panels)
-        var panel = TryParse(s.PanelColor, out var customPanel) ? customPanel : Color.FromRgb(0x10, 0x14, 0x19);
-        SetBrush("BgPanelBrush", hasImage ? Color.FromArgb(0xA6, panel.R, panel.G, panel.B) : panel);
+        var panel = TryParse(s.PanelColor, out var customPanel)
+            ? customPanel
+            : Pal("BgPanelBrush", Color.FromRgb(0x10, 0x14, 0x19));
+        SetBrush("BgPanelBrush", hasImage ? WithAlpha(panel, 0xA6) : panel, animate);
 
         // 4. Card & Elevated surfaces (all cards, items, badges, textboxes)
-        var card = TryParse(s.CardColor, out var customCard) ? customCard : Color.FromRgb(0x15, 0x1B, 0x22);
-        var elevated = Scale(card, 1.25);
-        var hover = Scale(card, 1.45);
-        SetBrush("BgCardBrush", hasImage ? Color.FromArgb(0xBF, card.R, card.G, card.B) : card);
-        SetBrush("BgElevatedBrush", hasImage ? Color.FromArgb(0xD9, elevated.R, elevated.G, elevated.B) : elevated);
-        SetBrush("BgHoverBrush", hasImage ? Color.FromArgb(0xE0, hover.R, hover.G, hover.B) : hover);
+        var hasCustomCard = TryParse(s.CardColor, out var card);
+        if (!hasCustomCard)
+            card = Pal("BgCardBrush", Color.FromRgb(0x15, 0x1B, 0x22));
 
-        // Derive border colors from card tone
-        var isLightCard = (0.299 * card.R + 0.587 * card.G + 0.114 * card.B) > 128;
-        var border = isLightCard ? Scale(card, 0.75) : Scale(card, 1.9);
-        var borderStrong = isLightCard ? Scale(card, 0.55) : Scale(card, 2.7);
-        SetBrush("BorderBrush", hasImage ? Color.FromArgb(0x80, border.R, border.G, border.B) : border);
-        SetBrush("BorderStrongBrush", hasImage ? Color.FromArgb(0xB0, borderStrong.R, borderStrong.G, borderStrong.B) : borderStrong);
-
-        // 5. Text
-        if (TryParse(s.TextColor, out var text))
+        Color elevated, hover, border, borderStrong;
+        if (hasCustomCard)
         {
-            SetBrush("TextPrimaryBrush", text);
-            SetBrush("TextSecondaryBrush", Scale(text, 0.75));
-            SetBrush("TextMutedBrush", Scale(text, 0.55));
+            elevated = Scale(card, 1.25);
+            hover = Scale(card, 1.45);
+            var isLightCard = Luma(card) > 128;
+            border = isLightCard ? Scale(card, 0.75) : Scale(card, 1.9);
+            borderStrong = isLightCard ? Scale(card, 0.55) : Scale(card, 2.7);
         }
         else
         {
-            SetBrush("TextPrimaryBrush", Color.FromRgb(0xF3, 0xF5, 0xFA));
-            SetBrush("TextSecondaryBrush", Color.FromRgb(0xAE, 0xB8, 0xC2));
-            SetBrush("TextMutedBrush", Color.FromRgb(0x78, 0x83, 0x8E));
+            elevated = Pal("BgElevatedBrush", card);
+            hover = Pal("BgHoverBrush", card);
+            border = Pal("BorderBrush", card);
+            borderStrong = Pal("BorderStrongBrush", card);
+        }
+
+        SetBrush("BgCardBrush", hasImage ? WithAlpha(card, 0xBF) : card, animate);
+        SetBrush("BgElevatedBrush", hasImage ? WithAlpha(elevated, 0xD9) : elevated, animate);
+        SetBrush("BgHoverBrush", hasImage ? WithAlpha(hover, 0xE0) : hover, animate);
+        SetBrush("BorderBrush", hasImage ? WithAlpha(border, 0x80) : border, animate);
+        SetBrush("BorderStrongBrush", hasImage ? WithAlpha(borderStrong, 0xB0) : borderStrong, animate);
+
+        // 5. Text (palette text colors already applied in step 0 when not customized)
+        if (TryParse(s.TextColor, out var text))
+        {
+            SetBrush("TextPrimaryBrush", text, animate);
+            SetBrush("TextSecondaryBrush", Scale(text, 0.75), animate);
+            SetBrush("TextMutedBrush", Scale(text, 0.55), animate);
         }
 
         BackgroundPath = s.BackgroundImagePath ?? "";
@@ -162,49 +191,82 @@ public static class Customization
     }
 
     /// <summary>Applies an accent color (also derives gradient + glow shades).</summary>
-    public static void ApplyAccent(Color accent)
+    public static void ApplyAccent(Color accent, bool animate = false)
     {
-        ApplyAccentInternal(accent);
+        ApplyAccentInternal(accent, animate);
         Changed?.Invoke();
     }
 
-    private static void ApplyAccentInternal(Color accent)
+    private static void ApplyAccentInternal(Color accent, bool animate)
     {
-        SetBrush("AccentBrush", accent);
-        SetBrush("AccentGlowBrush", Scale(accent, 0.40));
-        var grad = new LinearGradientBrush(accent, Scale(accent, 0.72), new Point(0, 0), new Point(1, 1));
-        if (Application.Current?.Resources != null)
+        SetBrush("AccentBrush", accent, animate);
+        SetBrush("AccentGlowBrush", Scale(accent, 0.40), animate);
+
+        var res = Application.Current?.Resources;
+        if (res == null) return;
+        var target2 = Scale(accent, 0.72);
+        if (res["AccentGradient"] is LinearGradientBrush grad && !grad.IsFrozen && grad.GradientStops.Count >= 2)
         {
-            Application.Current.Resources["AccentGradient"] = grad;
+            AnimateStop(grad.GradientStops[0], accent, animate);
+            AnimateStop(grad.GradientStops[1], target2, animate);
+        }
+        else
+        {
+            res["AccentGradient"] = new LinearGradientBrush(accent, target2, new Point(0, 0), new Point(1, 1));
         }
     }
 
-    /// <summary>Restores the default theme colors.</summary>
-    public static void ResetColors()
+    /// <summary>Restores the default theme colors (of the current theme).</summary>
+    public static void ResetColors(bool animate = false)
     {
         BackgroundPath = "";
         Kind = BackgroundKind.None;
-        foreach (var (key, hex) in Defaults)
+        foreach (var (key, hex) in CurrentPalette)
         {
-            if (TryParse(hex, out var c)) SetBrush(key, c);
+            if (TryParse(hex, out var c)) SetBrush(key, c, animate);
         }
-        if (TryParse("#28D7B7", out var accent)) ApplyAccentInternal(accent);
+        if (TryParse("#28D7B7", out var accent)) ApplyAccentInternal(accent, animate);
         Changed?.Invoke();
     }
 
-    private static void SetBrush(string key, Color c)
+    private static void SetBrush(string key, Color c, bool animate = false)
     {
         var res = Application.Current?.Resources;
         if (res == null) return;
         if (res[key] is SolidColorBrush b && !b.IsFrozen)
         {
+            var from = b.Color;
+            b.BeginAnimation(SolidColorBrush.ColorProperty, null);
             b.Color = c;
+            if (!animate || from == c) return;
+            b.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(from, c, Transition)
+            {
+                EasingFunction = TransitionEase,
+                FillBehavior = FillBehavior.Stop,
+            });
         }
         else
         {
             res[key] = new SolidColorBrush(c);
         }
     }
+
+    private static void AnimateStop(GradientStop stop, Color c, bool animate)
+    {
+        var from = stop.Color;
+        stop.BeginAnimation(GradientStop.ColorProperty, null);
+        stop.Color = c;
+        if (!animate || from == c) return;
+        stop.BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(from, c, Transition)
+        {
+            EasingFunction = TransitionEase,
+            FillBehavior = FillBehavior.Stop,
+        });
+    }
+
+    private static double Luma(Color c) => 0.299 * c.R + 0.587 * c.G + 0.114 * c.B;
+
+    private static Color WithAlpha(Color c, byte a) => Color.FromArgb(a, c.R, c.G, c.B);
 
     private static Color Scale(Color c, double f) => Color.FromRgb(
         (byte)Math.Clamp(c.R * f, 0, 255),
@@ -228,4 +290,3 @@ public static class Customization
 
     public static string ToHex(Color c) => $"#{c.R:X2}{c.G:X2}{c.B:X2}";
 }
-
