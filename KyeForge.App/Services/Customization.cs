@@ -107,7 +107,7 @@ public static class Customization
         return fallback;
     }
 
-    /// <summary>Switches theme from stored settings, keeping user custom colors (animated by default).</summary>
+    /// <summary>Switches theme from stored settings; each theme keeps its own surface colors (animated by default).</summary>
     public static void SetTheme(AppSettings s, bool animate = true) => Apply(s, animate);
 
     /// <summary>Applies all stored customization from settings.</summary>
@@ -131,21 +131,28 @@ public static class Customization
         else if (TryParse("#28D7B7", out var defAccent))
             ApplyAccentInternal(defAccent, animate);
 
+        // Surface customs are stored per theme, so switching themes visibly
+        // switches palettes while each theme remembers its own colors.
+        var bgHex = Theme == "light" ? s.BgColorLight : s.BgColor;
+        var panelHex = Theme == "light" ? s.PanelColorLight : s.PanelColor;
+        var cardHex = Theme == "light" ? s.CardColorLight : s.CardColor;
+        var textHex = Theme == "light" ? s.TextColorLight : s.TextColor;
+
         // 2. Bg (Window background / deep canvas background)
-        var bg = TryParse(s.BgColor, out var customBg)
+        var bg = TryParse(bgHex, out var customBg)
             ? customBg
             : Pal("BgDeepBrush", Color.FromRgb(0x09, 0x0B, 0x0F));
         SetBrush("BgDeepBrush", hasImage ? WithAlpha(bg, 0x30) : bg, animate);
         SetBrush("WindowBackgroundBrush", bg, animate);
 
         // 3. Panel (Sidebar, headers, large panels)
-        var panel = TryParse(s.PanelColor, out var customPanel)
+        var panel = TryParse(panelHex, out var customPanel)
             ? customPanel
             : Pal("BgPanelBrush", Color.FromRgb(0x10, 0x14, 0x19));
         SetBrush("BgPanelBrush", hasImage ? WithAlpha(panel, 0xA6) : panel, animate);
 
         // 4. Card & Elevated surfaces (all cards, items, badges, textboxes)
-        var hasCustomCard = TryParse(s.CardColor, out var card);
+        var hasCustomCard = TryParse(cardHex, out var card);
         if (!hasCustomCard)
             card = Pal("BgCardBrush", Color.FromRgb(0x15, 0x1B, 0x22));
 
@@ -173,7 +180,7 @@ public static class Customization
         SetBrush("BorderStrongBrush", hasImage ? WithAlpha(borderStrong, 0xB0) : borderStrong, animate);
 
         // 5. Text (palette text colors already applied in step 0 when not customized)
-        if (TryParse(s.TextColor, out var text))
+        if (TryParse(textHex, out var text))
         {
             SetBrush("TextPrimaryBrush", text, animate);
             SetBrush("TextSecondaryBrush", Scale(text, 0.75), animate);

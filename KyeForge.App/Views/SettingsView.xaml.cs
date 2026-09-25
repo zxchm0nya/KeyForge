@@ -390,13 +390,38 @@ public partial class SettingsView : UserControl
 
     // ---------------- Color slots ----------------
 
+    // Surface slots are stored per theme; accent is shared.
+    private bool IsLightTheme => _settings.Theme == "light";
+
+    private string SlotValue(string slot) => slot switch
+    {
+        "accent" => _settings.AccentColor,
+        "bg" => IsLightTheme ? _settings.BgColorLight : _settings.BgColor,
+        "panel" => IsLightTheme ? _settings.PanelColorLight : _settings.PanelColor,
+        "card" => IsLightTheme ? _settings.CardColorLight : _settings.CardColor,
+        "text" => IsLightTheme ? _settings.TextColorLight : _settings.TextColor,
+        _ => ""
+    };
+
+    private void SetSlotValue(string slot, string hex)
+    {
+        switch (slot)
+        {
+            case "accent": _settings.AccentColor = hex; break;
+            case "bg": if (IsLightTheme) _settings.BgColorLight = hex; else _settings.BgColor = hex; break;
+            case "panel": if (IsLightTheme) _settings.PanelColorLight = hex; else _settings.PanelColor = hex; break;
+            case "card": if (IsLightTheme) _settings.CardColorLight = hex; else _settings.CardColor = hex; break;
+            case "text": if (IsLightTheme) _settings.TextColorLight = hex; else _settings.TextColor = hex; break;
+        }
+    }
+
     private void RefreshChips()
     {
-        SetChip(AccentChip, _settings.AccentColor, Customization.PaletteHex("AccentBrush"));
-        SetChip(BgChip, _settings.BgColor, Customization.PaletteHex("BgDeepBrush"));
-        SetChip(PanelChip, _settings.PanelColor, Customization.PaletteHex("BgPanelBrush"));
-        SetChip(CardChip, _settings.CardColor, Customization.PaletteHex("BgCardBrush"));
-        SetChip(TextChip, _settings.TextColor, Customization.PaletteHex("TextPrimaryBrush"));
+        SetChip(AccentChip, SlotValue("accent"), Customization.PaletteHex("AccentBrush"));
+        SetChip(BgChip, SlotValue("bg"), Customization.PaletteHex("BgDeepBrush"));
+        SetChip(PanelChip, SlotValue("panel"), Customization.PaletteHex("BgPanelBrush"));
+        SetChip(CardChip, SlotValue("card"), Customization.PaletteHex("BgCardBrush"));
+        SetChip(TextChip, SlotValue("text"), Customization.PaletteHex("TextPrimaryBrush"));
     }
 
     private static void SetChip(Border chip, string custom, string fallback)
@@ -414,15 +439,7 @@ public partial class SettingsView : UserControl
         e.Handled = true;
         if (sender is not Border chip || chip.Tag is not string slot) return;
 
-        var current = slot switch
-        {
-            "accent" => _settings.AccentColor,
-            "bg" => _settings.BgColor,
-            "panel" => _settings.PanelColor,
-            "card" => _settings.CardColor,
-            "text" => _settings.TextColor,
-            _ => ""
-        };
+        var current = SlotValue(slot);
         var fallback = slot switch
         {
             "accent" => Customization.PaletteHex("AccentBrush"),
@@ -444,14 +461,7 @@ public partial class SettingsView : UserControl
         if (dlg.ShowDialog() != true) return;
 
         var hex = Customization.ToHex(dlg.SelectedColor);
-        switch (slot)
-        {
-            case "accent": _settings.AccentColor = hex; break;
-            case "bg": _settings.BgColor = hex; break;
-            case "panel": _settings.PanelColor = hex; break;
-            case "card": _settings.CardColor = hex; break;
-            case "text": _settings.TextColor = hex; break;
-        }
+        SetSlotValue(slot, hex);
         _settings.Save();
         Customization.Apply(_settings, animate: true);
         RefreshChips();
@@ -466,6 +476,10 @@ public partial class SettingsView : UserControl
         _settings.PanelColor = "";
         _settings.CardColor = "";
         _settings.TextColor = "";
+        _settings.BgColorLight = "";
+        _settings.PanelColorLight = "";
+        _settings.CardColorLight = "";
+        _settings.TextColorLight = "";
         _settings.BackgroundImagePath = "";
         _settings.BackgroundDim = 55;
         _settings.BackgroundBlur = 0;

@@ -28,10 +28,16 @@ public class AppSettings
     /// <summary>UI theme: "dark" (default) or "light".</summary>
     public string Theme { get; set; } = "dark";
     public string AccentColor { get; set; } = "";
+    // Surface colors of the dark theme (empty = theme default).
     public string BgColor { get; set; } = "";
     public string PanelColor { get; set; } = "";
     public string CardColor { get; set; } = "";
     public string TextColor { get; set; } = "";
+    // Surface colors of the light theme (empty = theme default).
+    public string BgColorLight { get; set; } = "";
+    public string PanelColorLight { get; set; } = "";
+    public string CardColorLight { get; set; } = "";
+    public string TextColorLight { get; set; } = "";
 
     /// <summary>Custom background path: image (png/jpg/bmp), GIF or video. Empty = none.</summary>
     public string BackgroundImagePath { get; set; } = "";
