@@ -95,7 +95,7 @@
                                                Foreground="{DynamicResource TextMutedBrush}" />
                                 </StackPanel>
                                 <TextBlock Grid.Column="1" Text="&#xE10B;" FontFamily="Segoe MDL2 Assets" FontSize="12"
-                                           Foreground="{StaticResource AccentBrush}" HorizontalAlignment="Right"
+                                           Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Right"
                                            VerticalAlignment="Center" Visibility="{Binding IsSelected, Converter={StaticResource BoolToVis}}" />
                             </Grid>
                         </Border>

@@ -11,7 +11,7 @@
         Width="1200" Height="760"
         MinWidth="980" MinHeight="640"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BgDeepBrush}"
+        Background="{DynamicResource BgDeepBrush}"
         FontFamily="{StaticResource FontFamily}"
         Loaded="OnWindowLoaded">
 

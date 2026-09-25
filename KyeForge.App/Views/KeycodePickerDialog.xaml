@@ -4,10 +4,10 @@
         Title="Assign keycode"
         WindowStartupLocation="CenterOwner"
         Width="420" Height="520" MinHeight="400"
-        Background="{StaticResource BgPanelBrush}" FontFamily="{StaticResource FontFamily}"
+        Background="{DynamicResource BgPanelBrush}" FontFamily="{StaticResource FontFamily}"
         WindowStyle="None" AllowsTransparency="True"
         KeyDown="OnKeyDown">
-    <Border Background="{StaticResource BgPanelBrush}" BorderBrush="{StaticResource BorderBrush}"
+    <Border Background="{DynamicResource BgPanelBrush}" BorderBrush="{DynamicResource BorderBrush}"
             BorderThickness="1" CornerRadius="14" Padding="20">
         <Border.Effect>
             <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.5" Color="#000000" />
@@ -21,7 +21,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Text="{DynamicResource t_picker_title}" FontSize="16" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextPrimaryBrush}" />
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
             <TextBox x:Name="SearchBox" Grid.Row="1" Style="{StaticResource AppTextBox}" Margin="0,12,0,10"
                      ToolTip="{DynamicResource t_picker_search_placeholder}"
@@ -41,7 +41,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
                             <TextBlock Grid.Column="1" Text="{Binding Hex}" FontFamily="Consolas" FontSize="11"
-                                       Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
+                                       Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
                         </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

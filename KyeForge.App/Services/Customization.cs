@@ -2,13 +2,14 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 
 namespace KyeForge.App.Services;
 
 /// <summary>
-/// Live theme customization: updates shared brush instances from Themes/Colors.xaml
-/// so every DynamicResource (and StaticResource) reference in the app updates instantly.
-/// Brush color changes can be animated for a smooth theme/color transition.
+/// Live theme customization: publishes brush resources from Themes/Colors.xaml
+/// so every DynamicResource reference in the app updates. Color changes can
+/// crossfade smoothly (a timer writes interpolated brushes per tick).
 /// Also broadcasts changes (background image etc.) via <see cref="Changed"/>.
 /// </summary>
 public static class Customization
@@ -77,9 +78,24 @@ public static class Customization
         ("TextMutedBrush", "#7A8590"),
     };
 
-    private static readonly Duration Transition = new Duration(TimeSpan.FromMilliseconds(450));
-    private static readonly IEasingFunction TransitionEase =
+    // NOTE: brushes stored in Application.Resources are frozen by WPF on insert,
+    // so they can never be animated in place. Crossfades run on a dispatcher
+    // timer that writes an interpolated brush per tick; DynamicResource
+    // consumers repaint every tick, producing a smooth transition.
+    private static readonly TimeSpan AnimDuration = TimeSpan.FromMilliseconds(600);
+    private static readonly IEasingFunction AnimEase =
         new CubicEase { EasingMode = EasingMode.EaseInOut };
+
+    private sealed class ActiveAnim
+    {
+        public DateTime Start;
+        public readonly List<(string Key, Color From, Color To)> Brushes = new();
+        public bool HasGradient;
+        public Color GradFrom0, GradTo0, GradFrom1, GradTo1;
+    }
+
+    private static ActiveAnim? _activeAnim;
+    private static DispatcherTimer? _animTimer;
 
     /// <summary>Current UI theme: "dark" or "light".</summary>
     public static string Theme { get; private set; } = "dark";
@@ -118,18 +134,20 @@ public static class Customization
         Theme = s.Theme == "light" ? "light" : "dark";
         var hasImage = !string.IsNullOrEmpty(s.BackgroundImagePath) && File.Exists(s.BackgroundImagePath);
 
+        // Collect brush targets first; commit once (instantly or as a crossfade).
+        var targets = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+
         // 0. Base palette (dark or light) before user overrides.
         var basePalette = Theme == "light" ? LightDefaults : Defaults;
         foreach (var (key, hex) in basePalette)
         {
-            if (TryParse(hex, out var pc)) SetBrush(key, pc, animate);
+            if (TryParse(hex, out var pc)) targets[key] = pc;
         }
 
         // 1. Accent
-        if (TryParse(s.AccentColor, out var accent))
-            ApplyAccentInternal(accent, animate);
-        else if (TryParse("#28D7B7", out var defAccent))
-            ApplyAccentInternal(defAccent, animate);
+        if (!TryParse(s.AccentColor, out var accent))
+            TryParse("#28D7B7", out accent);
+        var gradTargets = AccentTargets(accent, targets);
 
         // Surface customs are stored per theme, so switching themes visibly
         // switches palettes while each theme remembers its own colors.
@@ -142,14 +160,14 @@ public static class Customization
         var bg = TryParse(bgHex, out var customBg)
             ? customBg
             : Pal("BgDeepBrush", Color.FromRgb(0x09, 0x0B, 0x0F));
-        SetBrush("BgDeepBrush", hasImage ? WithAlpha(bg, 0x30) : bg, animate);
-        SetBrush("WindowBackgroundBrush", bg, animate);
+        targets["BgDeepBrush"] = hasImage ? WithAlpha(bg, 0x30) : bg;
+        targets["WindowBackgroundBrush"] = bg;
 
         // 3. Panel (Sidebar, headers, large panels)
         var panel = TryParse(panelHex, out var customPanel)
             ? customPanel
             : Pal("BgPanelBrush", Color.FromRgb(0x10, 0x14, 0x19));
-        SetBrush("BgPanelBrush", hasImage ? WithAlpha(panel, 0xA6) : panel, animate);
+        targets["BgPanelBrush"] = hasImage ? WithAlpha(panel, 0xA6) : panel;
 
         // 4. Card & Elevated surfaces (all cards, items, badges, textboxes)
         var hasCustomCard = TryParse(cardHex, out var card);
@@ -173,19 +191,21 @@ public static class Customization
             borderStrong = Pal("BorderStrongBrush", card);
         }
 
-        SetBrush("BgCardBrush", hasImage ? WithAlpha(card, 0xBF) : card, animate);
-        SetBrush("BgElevatedBrush", hasImage ? WithAlpha(elevated, 0xD9) : elevated, animate);
-        SetBrush("BgHoverBrush", hasImage ? WithAlpha(hover, 0xE0) : hover, animate);
-        SetBrush("BorderBrush", hasImage ? WithAlpha(border, 0x80) : border, animate);
-        SetBrush("BorderStrongBrush", hasImage ? WithAlpha(borderStrong, 0xB0) : borderStrong, animate);
+        targets["BgCardBrush"] = hasImage ? WithAlpha(card, 0xBF) : card;
+        targets["BgElevatedBrush"] = hasImage ? WithAlpha(elevated, 0xD9) : elevated;
+        targets["BgHoverBrush"] = hasImage ? WithAlpha(hover, 0xE0) : hover;
+        targets["BorderBrush"] = hasImage ? WithAlpha(border, 0x80) : border;
+        targets["BorderStrongBrush"] = hasImage ? WithAlpha(borderStrong, 0xB0) : borderStrong;
 
-        // 5. Text (palette text colors already applied in step 0 when not customized)
+        // 5. Text (palette text colors already collected in step 0 when not customized)
         if (TryParse(textHex, out var text))
         {
-            SetBrush("TextPrimaryBrush", text, animate);
-            SetBrush("TextSecondaryBrush", Scale(text, 0.75), animate);
-            SetBrush("TextMutedBrush", Scale(text, 0.55), animate);
+            targets["TextPrimaryBrush"] = text;
+            targets["TextSecondaryBrush"] = Scale(text, 0.75);
+            targets["TextMutedBrush"] = Scale(text, 0.55);
         }
+
+        CommitTargets(targets, gradTargets, animate);
 
         BackgroundPath = s.BackgroundImagePath ?? "";
         Kind = DetectKind(BackgroundPath);
@@ -200,27 +220,17 @@ public static class Customization
     /// <summary>Applies an accent color (also derives gradient + glow shades).</summary>
     public static void ApplyAccent(Color accent, bool animate = false)
     {
-        ApplyAccentInternal(accent, animate);
+        var targets = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+        var grad = AccentTargets(accent, targets);
+        CommitTargets(targets, grad, animate);
         Changed?.Invoke();
     }
 
-    private static void ApplyAccentInternal(Color accent, bool animate)
+    private static (Color To0, Color To1) AccentTargets(Color accent, Dictionary<string, Color> targets)
     {
-        SetBrush("AccentBrush", accent, animate);
-        SetBrush("AccentGlowBrush", Scale(accent, 0.40), animate);
-
-        var res = Application.Current?.Resources;
-        if (res == null) return;
-        var target2 = Scale(accent, 0.72);
-        if (res["AccentGradient"] is LinearGradientBrush grad && !grad.IsFrozen && grad.GradientStops.Count >= 2)
-        {
-            AnimateStop(grad.GradientStops[0], accent, animate);
-            AnimateStop(grad.GradientStops[1], target2, animate);
-        }
-        else
-        {
-            res["AccentGradient"] = new LinearGradientBrush(accent, target2, new Point(0, 0), new Point(1, 1));
-        }
+        targets["AccentBrush"] = accent;
+        targets["AccentGlowBrush"] = Scale(accent, 0.40);
+        return (accent, Scale(accent, 0.72));
     }
 
     /// <summary>Restores the default theme colors (of the current theme).</summary>
@@ -228,47 +238,118 @@ public static class Customization
     {
         BackgroundPath = "";
         Kind = BackgroundKind.None;
+        var targets = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, hex) in CurrentPalette)
         {
-            if (TryParse(hex, out var c)) SetBrush(key, c, animate);
+            if (TryParse(hex, out var c)) targets[key] = c;
         }
-        if (TryParse("#28D7B7", out var accent)) ApplyAccentInternal(accent, animate);
+        (Color To0, Color To1)? grad = null;
+        if (TryParse("#28D7B7", out var accent)) grad = AccentTargets(accent, targets);
+        CommitTargets(targets, grad, animate);
         Changed?.Invoke();
     }
 
-    private static void SetBrush(string key, Color c, bool animate = false)
+    private static void CommitTargets(
+        Dictionary<string, Color> targets, (Color To0, Color To1)? gradient, bool animate)
+    {
+        var app = Application.Current;
+        var dispatcher = app?.Dispatcher;
+        if (!animate || app == null || dispatcher == null
+            || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+        {
+            StopAnimTimer();
+            CommitInstant(targets, gradient);
+            return;
+        }
+
+        var res = app.Resources;
+        var anim = new ActiveAnim { Start = DateTime.UtcNow };
+        foreach (var (key, to) in targets)
+        {
+            var from = res[key] is SolidColorBrush b ? b.Color : to;
+            if (from == to) continue;
+            anim.Brushes.Add((key, from, to));
+        }
+        if (gradient is var (g0, g1))
+        {
+            var f0 = g0;
+            var f1 = g1;
+            if (res["AccentGradient"] is LinearGradientBrush old && old.GradientStops.Count >= 2)
+            {
+                f0 = old.GradientStops[0].Color;
+                f1 = old.GradientStops[1].Color;
+            }
+            if (f0 != g0 || f1 != g1)
+            {
+                anim.HasGradient = true;
+                anim.GradFrom0 = f0;
+                anim.GradTo0 = g0;
+                anim.GradFrom1 = f1;
+                anim.GradTo1 = g1;
+            }
+        }
+
+        if (anim.Brushes.Count == 0 && !anim.HasGradient)
+        {
+            CommitInstant(targets, gradient);
+            return;
+        }
+
+        _activeAnim = anim;
+        _animTimer ??= new DispatcherTimer(DispatcherPriority.Render, dispatcher);
+        _animTimer.Interval = TimeSpan.FromMilliseconds(16);
+        _animTimer.Tick -= OnAnimTick;
+        _animTimer.Tick += OnAnimTick;
+        _animTimer.Start();
+    }
+
+    private static void CommitInstant(Dictionary<string, Color> targets, (Color To0, Color To1)? gradient)
     {
         var res = Application.Current?.Resources;
         if (res == null) return;
-        if (res[key] is SolidColorBrush b && !b.IsFrozen)
+        foreach (var (key, to) in targets)
+            res[key] = new SolidColorBrush(to);
+        if (gradient is var (g0, g1))
+            res["AccentGradient"] = new LinearGradientBrush(g0, g1, new Point(0, 0), new Point(1, 1));
+    }
+
+    private static void StopAnimTimer()
+    {
+        _animTimer?.Stop();
+        _activeAnim = null;
+    }
+
+    private static void OnAnimTick(object? sender, EventArgs e)
+    {
+        var anim = _activeAnim;
+        var res = Application.Current?.Resources;
+        if (anim == null || res == null)
         {
-            var from = b.Color;
-            b.BeginAnimation(SolidColorBrush.ColorProperty, null);
-            b.Color = c;
-            if (!animate || from == c) return;
-            b.BeginAnimation(SolidColorBrush.ColorProperty, new ColorAnimation(from, c, Transition)
-            {
-                EasingFunction = TransitionEase,
-                FillBehavior = FillBehavior.Stop,
-            });
+            StopAnimTimer();
+            return;
         }
-        else
+        var p = (DateTime.UtcNow - anim.Start).TotalMilliseconds / AnimDuration.TotalMilliseconds;
+        if (p >= 1) p = 1;
+        var t = AnimEase.Ease(p);
+        foreach (var (key, from, to) in anim.Brushes)
+            res[key] = new SolidColorBrush(Lerp(from, to, t));
+        if (anim.HasGradient)
+            res["AccentGradient"] = new LinearGradientBrush(
+                Lerp(anim.GradFrom0, anim.GradTo0, t),
+                Lerp(anim.GradFrom1, anim.GradTo1, t),
+                new Point(0, 0), new Point(1, 1));
+        if (p >= 1)
         {
-            res[key] = new SolidColorBrush(c);
+            StopAnimTimer();
+            // Refresh holders that cached a mid-flight brush instance (e.g. NavButton icons).
+            Changed?.Invoke();
         }
     }
 
-    private static void AnimateStop(GradientStop stop, Color c, bool animate)
+    private static Color Lerp(Color a, Color b, double t)
     {
-        var from = stop.Color;
-        stop.BeginAnimation(GradientStop.ColorProperty, null);
-        stop.Color = c;
-        if (!animate || from == c) return;
-        stop.BeginAnimation(GradientStop.ColorProperty, new ColorAnimation(from, c, Transition)
-        {
-            EasingFunction = TransitionEase,
-            FillBehavior = FillBehavior.Stop,
-        });
+        static byte L(byte x, byte y, double t) => (byte)Math.Round(x + (y - x) * t);
+        return Color.FromArgb(L(a.A, b.A, t), L(a.R, b.R, t), L(a.G, b.G, t), L(a.B, b.B, t));
     }
 
     private static double Luma(Color c) => 0.299 * c.R + 0.587 * c.G + 0.114 * c.B;

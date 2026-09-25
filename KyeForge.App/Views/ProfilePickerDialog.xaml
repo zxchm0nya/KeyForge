@@ -6,7 +6,7 @@
         Background="Transparent" FontFamily="{StaticResource FontFamily}"
         WindowStyle="None" AllowsTransparency="True"
         KeyDown="OnKeyDown">
-    <Border Background="{StaticResource BgPanelBrush}" BorderBrush="{StaticResource BorderStrongBrush}"
+    <Border Background="{DynamicResource BgPanelBrush}" BorderBrush="{DynamicResource BorderStrongBrush}"
             BorderThickness="1" CornerRadius="14" Padding="22" Margin="14"
             MouseLeftButtonDown="Window_DragMove">
         <Border.Effect>

@@ -6,7 +6,7 @@
         Background="Transparent" FontFamily="{StaticResource FontFamily}"
         WindowStyle="None" AllowsTransparency="True"
         KeyDown="OnKeyDown">
-    <Border Background="{StaticResource BgPanelBrush}" BorderBrush="{StaticResource BorderStrongBrush}"
+    <Border Background="{DynamicResource BgPanelBrush}" BorderBrush="{DynamicResource BorderStrongBrush}"
             BorderThickness="1" CornerRadius="14" Padding="22" Margin="14"
             MouseLeftButtonDown="Window_DragMove">
         <Border.Effect>
@@ -14,7 +14,7 @@
         </Border.Effect>
         <StackPanel>
             <TextBlock Text="{DynamicResource t_picker_color_title}" FontSize="16" FontWeight="SemiBold"
-                       Foreground="{StaticResource TextPrimaryBrush}" />
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
 
             <!-- Shade field: saturation (X) / brightness (Y) for the selected hue -->
             <Grid x:Name="SvArea" Height="200" Margin="0,16,0,0" Cursor="Cross"
@@ -103,7 +103,7 @@
                 <TextBox x:Name="HexBox" Grid.Column="1" Style="{StaticResource AppTextBox}" FontFamily="Consolas"
                          KeyDown="HexBox_KeyDown" LostFocus="HexBox_LostFocus" />
                 <Border x:Name="Preview" Grid.Column="2" Width="52" Height="32" CornerRadius="8" Margin="10,0,0,0"
-                        BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" />
+                        BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1" />
             </Grid>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">

@@ -19,7 +19,7 @@
                    RenderTransformOrigin="0.5,0.5"
                    Margin="0,0,12,0" VerticalAlignment="Center" />
             <TextBlock x:Name="LabelText" FontSize="14" FontWeight="Medium"
-                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
         </StackPanel>
     </Border>
 </UserControl>
