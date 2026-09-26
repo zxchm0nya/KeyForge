@@ -21,13 +21,20 @@ namespace KyeForge.App.Views
         private NativeMethods.LowLevelKeyboardProc? _proc;
         private IntPtr _hwnd;
 
-        // Animated background (GIF frames / video), paused when window is inactive.
-        // GIF frames are pre-scaled once at load so per-frame cost stays tiny.
+        // Animated GIF background, paused when window is inactive.
+        // Frames are composited on a background thread and pre-scaled once,
+        // so per-frame cost at runtime is just a bitmap swap.
         private List<BitmapSource> _gifFrames = new();
         private List<TimeSpan> _gifDelays = new();
         private int _gifIndex;
         private DispatcherTimer? _gifTimer;
-        private bool _videoActive;
+        private volatile int _gifGeneration;
+        private string _gifPath = "";
+        private double _gifBlur = -1;
+        private bool _gifLoading;
+        private bool _gifComplete;
+        private string _imagePath = "";
+        private double _imageBlur = -1;
         private int _navIndicatorRetries;
         private DispatcherTimer? _toastTimer;
 
@@ -59,15 +66,6 @@ namespace KyeForge.App.Views
 
             Activated += (_, _) => ResumeBackground();
             Deactivated += (_, _) => PauseBackground();
-            BgVideoHost.MediaEnded += (_, _) =>
-            {
-                try
-                {
-                    BgVideoHost.Position = TimeSpan.Zero;
-                    if (IsActive) BgVideoHost.Play();
-                }
-                catch { }
-            };
             NavGrid.SizeChanged += (_, _) => MoveNavIndicator(false);
 
             ApplyCustomBackground();
@@ -317,7 +315,7 @@ namespace KyeForge.App.Views
             // Ensure background elements span everything
             int colSpan = RootGrid.ColumnDefinitions.Count > 0 ? RootGrid.ColumnDefinitions.Count : 1;
             int rowSpan = RootGrid.RowDefinitions.Count > 0 ? RootGrid.RowDefinitions.Count : 1;
-            var bgHosts = new FrameworkElement[] { BgImageHost, BgGifHost, BgVideoHost, BgDimHost };
+            var bgHosts = new FrameworkElement[] { BgImageHost, BgGifHost, BgDimHost };
             foreach (var bg in bgHosts)
             {
                 Grid.SetColumn(bg, 0);
@@ -624,50 +622,42 @@ namespace KyeForge.App.Views
         {
             try
             {
-                StopGif();
-                StopVideo();
-                BgImageHost.Visibility = Visibility.Collapsed;
-                BgGifHost.Visibility = Visibility.Collapsed;
-                BgVideoHost.Visibility = Visibility.Collapsed;
-                BgImageHost.Effect = null;
-                BgGifHost.Effect = null;
-                BgVideoHost.Effect = null;
-                BgGifHost.CacheMode = null;
-                BgVideoHost.CacheMode = null;
-
                 var path = Customization.BackgroundPath;
                 var kind = Customization.Kind;
                 if (kind == Customization.BackgroundKind.None ||
                     string.IsNullOrEmpty(path) || !System.IO.File.Exists(path))
                 {
+                    StopGif();
+                    _imagePath = "";
+                    BgImageHost.Visibility = Visibility.Collapsed;
+                    BgGifHost.Visibility = Visibility.Collapsed;
                     BgDimHost.Opacity = 0;
                     ContentHost.SetResourceReference(Grid.BackgroundProperty, "BgDeepBrush");
                     SidebarHost.SetResourceReference(Border.BackgroundProperty, "BgPanelBrush");
                     return;
                 }
 
-                System.Windows.Media.Effects.Effect? blur = Customization.BackgroundBlur > 0
-                    ? new System.Windows.Media.Effects.BlurEffect { Radius = Customization.BackgroundBlur }
-                    : null;
+                double blur = Customization.BackgroundBlur;
 
                 switch (kind)
                 {
                     case Customization.BackgroundKind.Gif:
-                        BgGifHost.Effect = blur;
-                        // When blurred, render the animation at half resolution and let
-                        // the GPU upscale it: blur on a fullscreen surface every frame
-                        // is what drops the whole window to slideshow fps.
-                        BgGifHost.CacheMode = blur != null ? new BitmapCache(0.5) : null;
+                        _imagePath = "";
+                        BgImageHost.Visibility = Visibility.Collapsed;
+                        BgGifHost.Effect = null;
+                        BgGifHost.CacheMode = null;
+                        if (BgGifHost.Visibility == Visibility.Visible && _gifPath == path &&
+                            _gifBlur == blur && (_gifComplete || _gifLoading))
+                            break; // already playing (or still loading) exactly this setup
+                        StopGif();
                         BgGifHost.Visibility = Visibility.Visible;
                         StartGif(path);
                         break;
-                    case Customization.BackgroundKind.Video:
-                        BgVideoHost.Effect = blur;
-                        BgVideoHost.CacheMode = blur != null ? new BitmapCache(0.5) : null;
-                        BgVideoHost.Visibility = Visibility.Visible;
-                        StartVideo(path);
-                        break;
                     default:
+                        StopGif();
+                        if (BgImageHost.Visibility == Visibility.Visible && _imagePath == path && _imageBlur == blur)
+                            break; // same image setup: dim overlay updated below
+                        BgGifHost.Visibility = Visibility.Collapsed;
                         var img = new BitmapImage();
                         img.BeginInit();
                         img.CacheOption = BitmapCacheOption.OnLoad;
@@ -683,6 +673,8 @@ namespace KyeForge.App.Views
                             : img;
                         BgImageHost.Effect = null;
                         BgImageHost.Visibility = Visibility.Visible;
+                        _imagePath = path;
+                        _imageBlur = blur;
                         break;
                 }
 
@@ -693,10 +685,8 @@ namespace KyeForge.App.Views
             catch
             {
                 StopGif();
-                StopVideo();
                 BgImageHost.Visibility = Visibility.Collapsed;
                 BgGifHost.Visibility = Visibility.Collapsed;
-                BgVideoHost.Visibility = Visibility.Collapsed;
                 BgDimHost.Opacity = 0;
             }
         }
@@ -741,38 +731,200 @@ namespace KyeForge.App.Views
         {
             try
             {
+                int gen = ++_gifGeneration;
+                double blur = Customization.BackgroundBlur;
+                _gifPath = path;
+                _gifBlur = blur;
+                _gifLoading = true;
+                _gifComplete = false;
+
+                // Decode + composite + optional blur-bake run on a background STA
+                // thread: compositing a big GIF took seconds on the UI thread and
+                // froze the whole app (also on every dim/blur slider tick, which
+                // re-applies the background). Frozen results cross threads safely.
+                var thread = new Thread(() => GifLoadWorker(path, gen, blur))
+                {
+                    IsBackground = true,
+                    Name = "GifLoader"
+                };
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.Start();
+            }
+            catch { }
+        }
+
+        private void GifLoadWorker(string path, int gen, double blur)
+        {
+            // Frames stream in one by one: the first shows within ~100 ms and
+            // playback starts at once instead of waiting for the whole file.
+            // (Same dispatcher, so per-frame invokes run before the final one.)
+            try
+            {
                 var decoder = new GifBitmapDecoder(new Uri(path),
                     BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                if (decoder.Frames.Count == 0) return;
+                if (decoder.Frames.Count > 0)
+                {
+                    CompositeGif(decoder, blur, gen, () => gen == _gifGeneration, (snap, delay) =>
+                    {
+                        try
+                        {
+                            Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                try
+                                {
+                                    if (gen != _gifGeneration) return;
+                                    _gifFrames.Add(snap);
+                                    _gifDelays.Add(delay);
+                                    if (_gifFrames.Count == 1)
+                                    {
+                                        BgGifHost.Source = snap;
+                                        if (_gifTimer == null)
+                                        {
+                                            _gifTimer = new DispatcherTimer { Interval = delay };
+                                            _gifTimer.Tick += (_, _) => AdvanceGifFrame();
+                                        }
+                                        // Start unconditionally: after a modal file dialog the
+                                        // window may not be re-activated yet (IsActive=false),
+                                        // which used to leave the GIF frozen until restart.
+                                        // PauseBackground (on real deactivation) still stops it
+                                        // when the app is in background.
+                                        _gifTimer.Start();
+                                        if (!IsActive) PauseBackground();
+                                    }
+                                }
+                                catch { }
+                            }));
+                        }
+                        catch { }
+                    });
+                }
+            }
+            catch { }
 
-                // Pre-scale frames once: a 4K GIF re-uploaded + re-rastered every
-                // frame is enough to drag all window animations down with it.
-                // Blurred backgrounds hide detail anyway -> shrink harder.
-                int cap = Customization.BackgroundBlur > 0 ? 800 : 1280;
-                double scale = 1.0;
-                int w = decoder.Frames[0].PixelWidth;
-                if (w > cap) scale = cap / (double)w;
+            try
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    try
+                    {
+                        if (gen != _gifGeneration) return;
+                        _gifLoading = false;
+                        _gifComplete = _gifFrames.Count > 0;
+                        if (_gifFrames.Count == 0)
+                        {
+                            BgGifHost.Visibility = Visibility.Collapsed;
+                        }
+                        else if (_gifFrames.Count == 1)
+                        {
+                            _gifTimer?.Stop();
+                            _gifTimer = null;
+                        }
+                    }
+                    catch { }
+                }));
+            }
+            catch { }
+        }
 
-                _gifFrames = new List<BitmapSource>(decoder.Frames.Count);
-                _gifDelays = new List<TimeSpan>(decoder.Frames.Count);
+        /// <summary>
+        /// Composites GIF frames honoring disposal methods into Bgra32 bitmaps
+        /// (raw decoder frames are partial deltas in indexed formats).
+        /// Composites straight at display size and streams frames out via
+        /// <paramref name="onFrame"/> as they are ready. Static so it can run
+        /// on any thread; everything produced is frozen. Aborts early when
+        /// <paramref name="isCurrent"/> turns false.
+        /// </summary>
+        private static void CompositeGif(
+            GifBitmapDecoder decoder, double blur, int gen, Func<bool> isCurrent,
+            Action<BitmapSource, TimeSpan> onFrame)
+        {
+            try
+            {
+                // Logical screen size: frames after the first are often smaller
+                // deltas with offsets, not full pictures.
+                int fullW = GetGifMetaUShort(decoder.Metadata as BitmapMetadata, "/logscrdesc/Width", 0);
+                int fullH = GetGifMetaUShort(decoder.Metadata as BitmapMetadata, "/logscrdesc/Height", 0);
+                if (fullW <= 0 || fullH <= 0)
+                {
+                    fullW = decoder.Frames[0].PixelWidth;
+                    fullH = decoder.Frames[0].PixelHeight;
+                }
+                if (fullW <= 0 || fullH <= 0) return;
+
+                // Blurred backgrounds hide detail: composite smaller right away,
+                // then bake the blur into each frame once (no live BlurEffect,
+                // which re-blurs the fullscreen surface on every frame).
+                // Huge frame counts shrink harder to bound memory (~4 bytes/px).
+                bool bakeBlur = blur > 0;
+                int count = decoder.Frames.Count;
+                int cap = bakeBlur ? 960 : 1280;
+                if (count > 80) cap = Math.Min(cap, 800);
+                if (count > 200) cap = Math.Min(cap, 640);
+                double s = 1.0;
+                if (fullW > cap) s = cap / (double)fullW;
+                int targetW = Math.Max(1, (int)(fullW * s));
+                int targetH = Math.Max(1, (int)(fullH * s));
+
+                WriteableBitmap canvas = new(targetW, targetH, 96, 96, PixelFormats.Pbgra32, null);
+                WriteableBitmap? backup = null;
+                int prevDisposal = 0, px = 0, py = 0, pw = 0, ph = 0;
+
                 foreach (var f in decoder.Frames)
                 {
-                    BitmapSource src = f;
-                    if (scale < 1.0)
-                        src = new TransformedBitmap(f, new ScaleTransform(scale, scale));
-                    src.Freeze();
-                    _gifFrames.Add(src);
-                    _gifDelays.Add(GetGifFrameDelay(f));
+                    try
+                    {
+                        if (!isCurrent()) return; // superseded: abort early
+
+                        if (prevDisposal == 2)
+                            ClearRect(canvas, px, py, pw, ph);
+                        else if (prevDisposal == 3 && backup != null)
+                            canvas = new WriteableBitmap(backup);
+
+                        var meta = f.Metadata as BitmapMetadata;
+                        double fx = f.DpiX > 0 ? 96.0 / f.DpiX : 1.0;
+                        double fy = f.DpiY > 0 ? 96.0 / f.DpiY : 1.0;
+                        double fsx = s * fx, fsy = s * fy;
+                        int left = Math.Clamp((int)(GetGifMetaUShort(meta, "/imgdesc/Left", 0) * s), 0, Math.Max(0, targetW - 1));
+                        int top = Math.Clamp((int)(GetGifMetaUShort(meta, "/imgdesc/Top", 0) * s), 0, Math.Max(0, targetH - 1));
+                        int disposal = GetGifMetaUShort(meta, "/grctlext/Disposal", 0);
+
+                        if (disposal == 3)
+                            backup = new WriteableBitmap(canvas);
+
+                        var conv = new FormatConvertedBitmap(f, PixelFormats.Pbgra32, null, 0);
+                        BitmapSource scaled = (fsx == 1.0 && fsy == 1.0)
+                            ? conv
+                            : new TransformedBitmap(conv, new ScaleTransform(fsx, fsy));
+                        int dw = Math.Min(scaled.PixelWidth, targetW - left);
+                        int dh = Math.Min(scaled.PixelHeight, targetH - top);
+                        if (dw > 0 && dh > 0)
+                        {
+                            var dv = new DrawingVisual();
+                            using (var dc = dv.RenderOpen())
+                            {
+                                dc.DrawImage(canvas, new Rect(0, 0, targetW, targetH));
+                                dc.DrawImage(scaled, new Rect(left, top, dw, dh));
+                            }
+                            var rtb = new RenderTargetBitmap(targetW, targetH, 96, 96, PixelFormats.Pbgra32);
+                            rtb.Render(dv);
+                            rtb.Freeze();
+                            canvas = new WriteableBitmap(rtb);
+                        }
+
+                        // Never freeze the working canvas itself (only copies of
+                        // it): freezing it would break the next ClearRect/draw.
+                        BitmapSource snap = bakeBlur
+                            ? BakeBlurred(canvas, blur)
+                            : new WriteableBitmap(canvas);
+                        snap.Freeze();
+                        onFrame(snap, GetGifFrameDelay(f));
+
+                        prevDisposal = disposal;
+                        px = left; py = top;
+                        pw = dw; ph = dh;
+                    }
+                    catch { /* skip a broken frame, keep the previous look */ }
                 }
-
-                _gifIndex = 0;
-                BgGifHost.Source = _gifFrames[0];
-
-                if (_gifFrames.Count == 1) return;
-
-                _gifTimer = new DispatcherTimer { Interval = _gifDelays[0] };
-                _gifTimer.Tick += (_, _) => AdvanceGifFrame();
-                if (IsActive) _gifTimer.Start();
             }
             catch { }
         }
@@ -782,10 +934,37 @@ namespace KyeForge.App.Views
             try
             {
                 if (_gifFrames.Count == 0) return;
+                if (_gifIndex >= _gifFrames.Count) _gifIndex = 0;
                 _gifIndex = (_gifIndex + 1) % _gifFrames.Count;
                 BgGifHost.Source = _gifFrames[_gifIndex];
-                if (_gifTimer != null)
+                if (_gifTimer != null && _gifIndex < _gifDelays.Count)
                     _gifTimer.Interval = _gifDelays[_gifIndex];
+            }
+            catch { }
+        }
+
+        private static int GetGifMetaUShort(BitmapMetadata? meta, string query, int fallback)
+        {
+            try
+            {
+                if (meta != null && meta.ContainsQuery(query))
+                    return Convert.ToInt32(meta.GetQuery(query));
+            }
+            catch { }
+            return fallback;
+        }
+
+        private static void ClearRect(WriteableBitmap wb, int x, int y, int w, int h)
+        {
+            try
+            {
+                x = Math.Clamp(x, 0, wb.PixelWidth);
+                y = Math.Clamp(y, 0, wb.PixelHeight);
+                w = Math.Clamp(w, 0, wb.PixelWidth - x);
+                h = Math.Clamp(h, 0, wb.PixelHeight - y);
+                if (w <= 0 || h <= 0) return;
+                int stride = w * 4;
+                wb.WritePixels(new Int32Rect(x, y, w, h), new byte[stride * h], stride, 0);
             }
             catch { }
         }
@@ -808,42 +987,21 @@ namespace KyeForge.App.Views
 
         private void StopGif()
         {
+            ++_gifGeneration; // invalidate any background load in flight
             try { _gifTimer?.Stop(); } catch { }
             _gifTimer = null;
             _gifFrames = new List<BitmapSource>();
             _gifDelays = new List<TimeSpan>();
             _gifIndex = 0;
+            _gifPath = "";
+            _gifLoading = false;
+            _gifComplete = false;
         }
 
-        // ---------------- Animated background: video ----------------
-
-        private void StartVideo(string path)
-        {
-            try
-            {
-                _videoActive = true;
-                BgVideoHost.Source = new Uri(path);
-                if (IsActive) BgVideoHost.Play();
-            }
-            catch { _videoActive = false; }
-        }
-
-        private void StopVideo()
-        {
-            _videoActive = false;
-            try
-            {
-                BgVideoHost.Stop();
-                BgVideoHost.Source = null;
-            }
-            catch { }
-        }
-
-        /// <summary>Pauses GIF/video so they don't burn CPU while another app is in front.</summary>
+        /// <summary>Pauses the GIF so it doesn't burn CPU while another app is in front.</summary>
         private void PauseBackground()
         {
             try { _gifTimer?.Stop(); } catch { }
-            try { if (_videoActive && BgVideoHost.Source != null) BgVideoHost.Pause(); } catch { }
             NavButton.PauseIconAnimations();
         }
 
@@ -853,13 +1011,6 @@ namespace KyeForge.App.Views
             {
                 if (_gifTimer != null && BgGifHost.Visibility == Visibility.Visible && !IsActive) return;
                 if (_gifTimer != null && BgGifHost.Visibility == Visibility.Visible) _gifTimer.Start();
-            }
-            catch { }
-            try
-            {
-                if (_videoActive && BgVideoHost.Source != null &&
-                    BgVideoHost.Visibility == Visibility.Visible && IsActive)
-                    BgVideoHost.Play();
             }
             catch { }
             NavButton.ResumeIconAnimations();
@@ -1016,7 +1167,6 @@ namespace KyeForge.App.Views
         protected override void OnClosed(EventArgs e)
         {
             StopGif();
-            StopVideo();
             if (_hookId != IntPtr.Zero) NativeMethods.UnhookWindowsHookEx(_hookId);
             _state.SelectedDevice?.Dispose();
             base.OnClosed(e);

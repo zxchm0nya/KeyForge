@@ -9,7 +9,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>KyeForgeSetup</AssemblyName>
     <Product>KyeForge Installer</Product>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\KyeForge.App\Assets\app.ico</ApplicationIcon>
   </PropertyGroup>

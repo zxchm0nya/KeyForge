@@ -39,7 +39,7 @@ public class AppSettings
     public string CardColorLight { get; set; } = "";
     public string TextColorLight { get; set; } = "";
 
-    /// <summary>Custom background path: image (png/jpg/bmp), GIF or video. Empty = none.</summary>
+    /// <summary>Custom background path: image (png/jpg/bmp/...) or GIF. Empty = none.</summary>
     public string BackgroundImagePath { get; set; } = "";
 
     /// <summary>Background dim overlay strength, 0..90 (percent).</summary>

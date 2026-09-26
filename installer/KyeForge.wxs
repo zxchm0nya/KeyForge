@@ -1,7 +1,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="KyeForge"
            Manufacturer="KyeForge"
-           Version="1.0.3"
+           Version="1.0.4"
            UpgradeCode="9C1B4E3A-0B2C-4B2D-9E1A-6F5E6A7B8C9D"
            Scope="perMachine"
            Languages="1033">

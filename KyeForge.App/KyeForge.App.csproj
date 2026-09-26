@@ -9,7 +9,7 @@
     <RootNamespace>KyeForge.App</RootNamespace>
     <AssemblyName>KyeForge</AssemblyName>
     <Product>KyeForge</Product>
-    <Version>1.0.3</Version>
+    <Version>1.0.4</Version>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>

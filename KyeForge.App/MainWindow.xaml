@@ -29,7 +29,7 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Custom background (behind everything): static image, GIF or video -->
+        <!-- Custom background (behind everything): static image or GIF -->
         <Border x:Name="BgImageHost" Grid.ColumnSpan="2" Visibility="Collapsed" IsHitTestVisible="False">
             <Border.CacheMode>
                 <BitmapCache />
@@ -40,9 +40,6 @@
         </Border>
         <Image x:Name="BgGifHost" Grid.ColumnSpan="2" Visibility="Collapsed"
                Stretch="UniformToFill" IsHitTestVisible="False" />
-        <MediaElement x:Name="BgVideoHost" Grid.ColumnSpan="2" Visibility="Collapsed"
-                      Stretch="UniformToFill" LoadedBehavior="Manual" UnloadedBehavior="Manual"
-                      Volume="0" IsMuted="True" IsHitTestVisible="False" />
         <Border x:Name="BgDimHost" Grid.ColumnSpan="2" Background="#000000" Opacity="0" IsHitTestVisible="False" />
 
         <!-- ============ SIDEBAR ============ -->

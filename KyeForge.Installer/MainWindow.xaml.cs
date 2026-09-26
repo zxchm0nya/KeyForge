@@ -322,13 +322,13 @@ public partial class MainWindow : Window
             using (var k = Registry.LocalMachine.CreateSubKey(AppKey))
             {
                 k.SetValue("InstallPath", Path.GetDirectoryName(exePath) ?? "");
-                k.SetValue("Version", "1.0.3");
+                k.SetValue("Version", "1.0.4");
             }
 
             using (var k = Registry.LocalMachine.CreateSubKey(UninstallKey))
             {
                 k.SetValue("DisplayName", "KyeForge");
-                k.SetValue("DisplayVersion", "1.0.3");
+                k.SetValue("DisplayVersion", "1.0.4");
                 k.SetValue("Publisher", "KyeForge");
                 k.SetValue("DisplayIcon", exePath);
                 k.SetValue("InstallLocation", Path.GetDirectoryName(exePath) ?? "");

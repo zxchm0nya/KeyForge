@@ -16,16 +16,19 @@ public static class Customization
 {
     public static event Action? Changed;
 
-    public enum BackgroundKind { None, Image, Gif, Video }
+    public enum BackgroundKind { None, Image, Gif }
 
-    /// <summary>Current custom background path ("" = none). May be an image, GIF or video.</summary>
+    /// <summary>Current custom background path ("" = none). May be an image or GIF.</summary>
     public static string BackgroundPath { get; private set; } = "";
 
     /// <summary>What kind of background <see cref="BackgroundPath"/> is.</summary>
     public static BackgroundKind Kind { get; private set; } = BackgroundKind.None;
 
-    private static readonly string[] VideoExtensions =
-        { ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".webm", ".m4v" };
+    // Video files are not supported as background: selecting one keeps
+    // the current background instead of breaking it.
+    private static readonly string[] UnsupportedVideoExtensions =
+        { ".mp4", ".m4v", ".mov", ".avi", ".wmv", ".asf", ".mpg", ".mpeg", ".m2v",
+          ".m2ts", ".mts", ".ts", ".mkv", ".webm", ".flv", ".f4v", ".3gp", ".3g2", ".ogv" };
 
     public static BackgroundKind DetectKind(string? path)
     {
@@ -34,8 +37,8 @@ public static class Customization
         var ext = Path.GetExtension(path).ToLowerInvariant();
         if (ext == ".gif")
             return BackgroundKind.Gif;
-        if (((IList<string>)VideoExtensions).Contains(ext))
-            return BackgroundKind.Video;
+        if (((IList<string>)UnsupportedVideoExtensions).Contains(ext))
+            return BackgroundKind.None;
         return BackgroundKind.Image;
     }
 

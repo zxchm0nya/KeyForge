@@ -499,10 +499,13 @@ public partial class SettingsView : UserControl
         var dlg = new OpenFileDialog
         {
             Title = Loc.T("t_custom_image_pick"),
-            Filter = "Images & GIF (*.png;*.jpg;*.jpeg;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.bmp;*.gif|Videos (*.mp4;*.avi;*.mov;*.wmv;*.mkv;*.webm;*.m4v)|*.mp4;*.avi;*.mov;*.wmv;*.mkv;*.webm;*.m4v|All files (*.*)|*.*",
+            Filter = "Images & GIF (*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff;*.ico)|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff;*.ico|All files (*.*)|*.*",
             CheckFileExists = true
         };
         if (dlg.ShowDialog() != true) return;
+
+        if (Customization.DetectKind(dlg.FileName) == Customization.BackgroundKind.None)
+            return; // unsupported file (e.g. video): keep the current background
 
         _settings.BackgroundImagePath = dlg.FileName;
         _settings.Save();
