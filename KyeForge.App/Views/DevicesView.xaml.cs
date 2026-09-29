@@ -155,6 +155,14 @@ public partial class DevicesView : UserControl
             : Loc.T("t_stat_connected_via", kb.Name, connectedVersion);
     }
 
+    private const string DonateUrl = "https://dalink.to/zxchmonya954";
+
+    private void DonateCard_Click(object sender, MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        try { UpdateChecker.OpenUrl(DonateUrl); } catch { }
+    }
+
     private async void BtnRefresh_Click(object sender, RoutedEventArgs e)
     {
         BtnRefresh.IsEnabled = false;

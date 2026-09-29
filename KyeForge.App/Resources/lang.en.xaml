@@ -30,6 +30,8 @@
     <sys:String x:Key="t_devices_btn_load">Load config (.json)</sys:String>
     <sys:String x:Key="t_devices_detected">Detected keyboards</sys:String>
     <sys:String x:Key="t_devices_none">No keyboards detected yet. Click "Scan for keyboards".</sys:String>
+    <sys:String x:Key="t_devices_donate_text">Support</sys:String>
+    <sys:String x:Key="t_devices_donate_hint">Supporters get into the video</sys:String>
     <sys:String x:Key="t_devices_loaded">Loaded configuration</sys:String>
     <sys:String x:Key="t_msg_no_via">No VIA keyboards found.</sys:String>
     <sys:String x:Key="t_msg_no_via_long">No VIA-capable keyboard detected.&#10;&#10;Make sure it's plugged in and running VIA/QMK firmware.</sys:String>

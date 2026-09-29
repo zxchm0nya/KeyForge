@@ -32,6 +32,7 @@
 
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\dalink.jpg" />
     <Resource Include="Assets\icons\devices.png" />
     <Resource Include="Assets\icons\keymap.png" />
     <Resource Include="Assets\icons\keytest.png" />

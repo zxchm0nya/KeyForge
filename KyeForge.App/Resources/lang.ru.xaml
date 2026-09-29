@@ -30,6 +30,8 @@
     <sys:String x:Key="t_devices_btn_load">Загрузить конфиг (.json)</sys:String>
     <sys:String x:Key="t_devices_detected">Обнаруженные клавиатуры</sys:String>
     <sys:String x:Key="t_devices_none">Клавиатуры пока не найдены. Нажмите «Найти клавиатуры».</sys:String>
+    <sys:String x:Key="t_devices_donate_text">Поддержка</sys:String>
+    <sys:String x:Key="t_devices_donate_hint">Кто поддерживает - попадает в видос</sys:String>
     <sys:String x:Key="t_devices_loaded">Загруженный конфиг</sys:String>
     <sys:String x:Key="t_msg_no_via">Клавиатуры VIA не найдены.</sys:String>
     <sys:String x:Key="t_msg_no_via_long">Клавиатура VIA не обнаружена.&#10;&#10;Убедитесь, что она подключена и использует прошивку VIA/QMK.</sys:String>
