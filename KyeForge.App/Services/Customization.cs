@@ -320,6 +320,30 @@ public static class Customization
     {
         _animTimer?.Stop();
         _activeAnim = null;
+        _animPausedAt = null;
+    }
+
+    private static DateTime? _animPausedAt;
+
+    /// <summary>Freezes an in-flight crossfade (for tray-hidden mode).</summary>
+    public static void PauseAnimations()
+    {
+        if (_activeAnim != null && _animTimer?.IsEnabled == true)
+        {
+            _animTimer.Stop();
+            _animPausedAt = DateTime.UtcNow;
+        }
+    }
+
+    /// <summary>Resumes a crossfade frozen by <see cref="PauseAnimations"/>.</summary>
+    public static void ResumeAnimations()
+    {
+        if (_activeAnim != null && _animPausedAt is DateTime paused)
+        {
+            _activeAnim.Start += DateTime.UtcNow - paused;
+            _animPausedAt = null;
+            _animTimer?.Start();
+        }
     }
 
     private static void OnAnimTick(object? sender, EventArgs e)

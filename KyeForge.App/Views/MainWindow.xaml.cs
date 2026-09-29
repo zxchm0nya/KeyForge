@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -37,6 +38,12 @@ namespace KyeForge.App.Views
         private double _imageBlur = -1;
         private int _navIndicatorRetries;
         private DispatcherTimer? _toastTimer;
+
+        // Tray: close hides to tray, flyout gives quick actions.
+        private System.Windows.Forms.NotifyIcon? _tray;
+        private TrayFlyout? _flyout;
+        private bool _allowRealClose;
+        private bool _trayBalloonShown;
 
         public MainWindow()
         {
@@ -90,6 +97,8 @@ namespace KyeForge.App.Views
             PlayWindowEntrance();
 
             UpdateChecker.Checked += OnUpdateChecked;
+            Application.Current.SessionEnding += (_, _) => _allowRealClose = true;
+            SetupTray();
             _ = Dispatcher.BeginInvoke(async () =>
             {
                 await Task.Delay(1200);
@@ -101,6 +110,116 @@ namespace KyeForge.App.Views
         {
             if (info is { IsNewer: true })
                 ShowUpdateToast(info);
+        }
+
+        // ---------------- Tray ----------------
+
+        private void SetupTray()
+        {
+            try
+            {
+                _flyout = new TrayFlyout { Owner = this };
+                _flyout.OpenRequested += ShowFromTray;
+                _flyout.ExitRequested += () =>
+                {
+                    _allowRealClose = true;
+                    try { _flyout?.Hide(); } catch { }
+                    Close();
+                };
+
+                _tray = new System.Windows.Forms.NotifyIcon();
+                try
+                {
+                    using var s = Application.GetResourceStream(
+                        new Uri("pack://application:,,,/KyeForge;component/Assets/app.ico"))?.Stream;
+                    if (s != null) _tray.Icon = new System.Drawing.Icon(s);
+                }
+                catch { }
+                _tray.Text = "KeyForge";
+                _tray.Visible = true;
+                _tray.MouseClick += (_, e) =>
+                {
+                    if (e.Button == System.Windows.Forms.MouseButtons.Left ||
+                        e.Button == System.Windows.Forms.MouseButtons.Right)
+                        ToggleFlyout();
+                };
+            }
+            catch { }
+        }
+
+        private void ToggleFlyout()
+        {
+            try
+            {
+                if (_flyout == null) return;
+                if (_flyout.IsVisible)
+                {
+                    _flyout.Hide();
+                    return;
+                }
+                // Ignore the click that follows a click-away auto-hide.
+                if ((DateTime.UtcNow - _flyout.LastAutoHide).TotalMilliseconds < 300) return;
+                // Anchor above the tray icon: the click lands on the icon itself.
+                var cursor = System.Windows.Forms.Cursor.Position;
+                double sx = 1, sy = 1;
+                try
+                {
+                    var dpi = VisualTreeHelper.GetDpi(this);
+                    sx = dpi.DpiScaleX;
+                    sy = dpi.DpiScaleY;
+                }
+                catch { }
+                var wa = System.Windows.Forms.Screen.FromPoint(cursor).WorkingArea;
+                _flyout.RefreshAndShow(
+                    new Point(cursor.X / sx, cursor.Y / sy),
+                    new Rect(wa.Left / sx, wa.Top / sy, wa.Width / sx, wa.Height / sy));
+            }
+            catch { }
+        }
+
+        private void HideToTray()
+        {
+            try
+            {
+                _flyout?.Hide();
+                Hide();
+                ShowInTaskbar = false;
+                PauseBackground();
+                Customization.PauseAnimations();
+                if (!_trayBalloonShown)
+                {
+                    _trayBalloonShown = true;
+                    _tray?.ShowBalloonTip(3000, Loc.T("t_tray_min_title"), Loc.T("t_tray_min_text"),
+                        System.Windows.Forms.ToolTipIcon.Info);
+                }
+            }
+            catch { }
+        }
+
+        private void ShowFromTray()
+        {
+            try
+            {
+                _flyout?.Hide();
+                Show();
+                ShowInTaskbar = true;
+                if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+                Activate();
+                ResumeBackground();
+                Customization.ResumeAnimations();
+            }
+            catch { }
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            if (!_allowRealClose)
+            {
+                e.Cancel = true;
+                HideToTray();
+                return;
+            }
+            base.OnClosing(e);
         }
 
         private void ShowUpdateToast(UpdateInfo info)
@@ -1166,6 +1285,9 @@ namespace KyeForge.App.Views
 
         protected override void OnClosed(EventArgs e)
         {
+            try { _tray?.Dispose(); } catch { }
+            _tray = null;
+            try { _flyout?.Close(); } catch { }
             StopGif();
             if (_hookId != IntPtr.Zero) NativeMethods.UnhookWindowsHookEx(_hookId);
             _state.SelectedDevice?.Dispose();

@@ -100,6 +100,26 @@ public static class AppLog
         }
     }
 
+    /// <summary>Counts [ERR]/[FTL] lines in today's log file (0 on any failure).</summary>
+    public static int CountErrors()
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(LogDirectory) || !Directory.Exists(LogDirectory)) return 0;
+            var today = Path.Combine(LogDirectory, $"keyforge-{DateTime.Now:yyyyMMdd}.log");
+            if (!File.Exists(today)) return 0;
+            int n = 0;
+            foreach (var line in File.ReadLines(today))
+            {
+                if (line.Contains("[ERR]", StringComparison.Ordinal) ||
+                    line.Contains("[FTL]", StringComparison.Ordinal))
+                    n++;
+            }
+            return n;
+        }
+        catch { return 0; }
+    }
+
     /// <summary>Zips all log files into a temp archive and returns its path (or "" on failure).</summary>
     public static string ExportArchive()
     {

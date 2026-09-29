@@ -197,5 +197,15 @@
     <sys:String x:Key="t_updates_toast_title">Доступно обновление {0}</sys:String>
     <sys:String x:Key="t_updates_toast_update">Обновить</sys:String>
     <sys:String x:Key="t_updates_toast_close">Закрыть</sys:String>
+    <sys:String x:Key="t_tray_open">Открыть KeyForge</sys:String>
+    <sys:String x:Key="t_tray_exit">Выход</sys:String>
+    <sys:String x:Key="t_tray_profile">Профиль</sys:String>
+    <sys:String x:Key="t_tray_light_on">Подсветка: вкл</sys:String>
+    <sys:String x:Key="t_tray_light_off">Подсветка: выкл</sys:String>
+    <sys:String x:Key="t_tray_errors">Ошибки: {0}</sys:String>
+    <sys:String x:Key="t_tray_nodevice">Клавиатура не подключена</sys:String>
+    <sys:String x:Key="t_tray_noprofiles">Нет профилей</sys:String>
+    <sys:String x:Key="t_tray_min_title">KeyForge свернут в трей</sys:String>
+    <sys:String x:Key="t_tray_min_text">Клик по иконке - быстрые действия</sys:String>
 
 </ResourceDictionary>

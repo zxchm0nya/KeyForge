@@ -197,5 +197,15 @@
     <sys:String x:Key="t_updates_toast_title">Update {0} available</sys:String>
     <sys:String x:Key="t_updates_toast_update">Update</sys:String>
     <sys:String x:Key="t_updates_toast_close">Close</sys:String>
+    <sys:String x:Key="t_tray_open">Open KeyForge</sys:String>
+    <sys:String x:Key="t_tray_exit">Exit</sys:String>
+    <sys:String x:Key="t_tray_profile">Profile</sys:String>
+    <sys:String x:Key="t_tray_light_on">Backlight: on</sys:String>
+    <sys:String x:Key="t_tray_light_off">Backlight: off</sys:String>
+    <sys:String x:Key="t_tray_errors">Errors: {0}</sys:String>
+    <sys:String x:Key="t_tray_nodevice">No keyboard connected</sys:String>
+    <sys:String x:Key="t_tray_noprofiles">No profiles</sys:String>
+    <sys:String x:Key="t_tray_min_title">KeyForge minimized to tray</sys:String>
+    <sys:String x:Key="t_tray_min_text">Click the icon for quick actions</sys:String>
 
 </ResourceDictionary>

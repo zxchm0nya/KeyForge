@@ -121,6 +121,22 @@ public static class AppProfileWatcher
         _timer = null;
     }
 
+    /// <summary>
+    /// Manually activates a profile (e.g. from the tray flyout): sets it current
+    /// and raises <see cref="ProfileChanged"/> on the UI thread, like <see cref="Poll"/> does.
+    /// Pass null to fall back to default (no profile).
+    /// </summary>
+    public static void Activate(AppProfile? profile)
+    {
+        _current = profile;
+        var captured = profile;
+        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            ProfileChanged?.Invoke(captured);
+            PluginHost.NotifyProfileSwitch(captured?.Name ?? "");
+        });
+    }
+
     private static void Poll()
     {
         try
