@@ -104,6 +104,26 @@ namespace KyeForge.App.Views
                 await Task.Delay(1200);
                 await UpdateChecker.CheckInBackgroundAsync();
             }, DispatcherPriority.Background);
+            _ = Dispatcher.BeginInvoke(async () =>
+            {
+                await Task.Delay(2600);
+                ShowStarPromptOnce();
+            }, DispatcherPriority.Background);
+        }
+
+        /// <summary>Shows the "star the repo" nudge exactly once per installation.</summary>
+        private void ShowStarPromptOnce()
+        {
+            if (_settings.StarPromptShown) return;
+            if (!IsVisible || WindowState == WindowState.Minimized) return;
+
+            _settings.StarPromptShown = true;
+            _settings.Save();
+            try
+            {
+                new StarPromptDialog().ShowDialog();
+            }
+            catch { }
         }
 
         private void OnUpdateChecked(UpdateInfo? info)

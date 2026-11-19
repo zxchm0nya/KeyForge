@@ -1,0 +1,62 @@
+<Window x:Class="KyeForge.App.Views.StarPromptDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="KeyForge"
+        Width="470" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="False" Topmost="True"
+        FontFamily="{StaticResource FontFamily}"
+        KeyDown="OnKeyDown">
+    <Border Background="{DynamicResource BgPanelBrush}"
+            BorderBrush="{DynamicResource BorderStrongBrush}" BorderThickness="1"
+            CornerRadius="14" Padding="22" Margin="14"
+            MouseLeftButtonDown="Window_DragMove">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="28" ShadowDepth="0" Opacity="0.5" Color="#000000" />
+        </Border.Effect>
+        <StackPanel>
+            <Grid>
+                <StackPanel Orientation="Horizontal">
+                    <Border Width="46" Height="46" CornerRadius="12" VerticalAlignment="Top"
+                            Background="{DynamicResource BgElevatedBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                        <TextBlock Text="&#xE735;" FontFamily="Segoe MDL2 Assets" FontSize="22"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{DynamicResource t_star_title}" FontSize="17" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
+                        <Border HorizontalAlignment="Left" Background="{DynamicResource BgCardBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                CornerRadius="6" Padding="8,3" Margin="0,7,0,0">
+                            <TextBlock Text="{DynamicResource t_star_repo}" FontFamily="Consolas" FontSize="11"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+                <Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                        Style="{StaticResource WindowButtonStyle}" Focusable="False"
+                        ToolTip="{DynamicResource t_updates_toast_close}"
+                        AutomationProperties.Name="{DynamicResource t_updates_toast_close}"
+                        Click="Close_Click">
+                    <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Button>
+            </Grid>
+
+            <TextBlock Text="{DynamicResource t_star_text}" Style="{StaticResource SubText}"
+                       TextWrapping="Wrap" Margin="0,16,0,0" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                <Button Style="{StaticResource SecondaryButton}"
+                        Content="{DynamicResource t_updates_toast_close}"
+                        Margin="0,0,10,0" IsCancel="True" Click="Close_Click" />
+                <Button x:Name="BtnStar" Style="{StaticResource PrimaryButton}"
+                        Content="{DynamicResource t_star_btn}"
+                        AutomationProperties.Name="{DynamicResource t_star_btn}"
+                        Click="Star_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

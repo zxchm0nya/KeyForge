@@ -199,6 +199,12 @@
     <sys:String x:Key="t_updates_toast_title">Доступно обновление {0}</sys:String>
     <sys:String x:Key="t_updates_toast_update">Обновить</sys:String>
     <sys:String x:Key="t_updates_toast_close">Закрыть</sys:String>
+    <!-- ============ Star prompt ============ -->
+    <sys:String x:Key="t_star_title">Поставьте звезду KeyForge?</sys:String>
+    <sys:String x:Key="t_star_text">KeyForge делает один автор. Если конфигуратор оказался полезен, поставьте звезду на GitHub — автору будет очень приятно.</sys:String>
+    <sys:String x:Key="t_star_repo">zxchm0nya/KeyForge</sys:String>
+    <sys:String x:Key="t_star_btn">Поставить звезду</sys:String>
+
     <sys:String x:Key="t_tray_open">Открыть KeyForge</sys:String>
     <sys:String x:Key="t_tray_exit">Выход</sys:String>
     <sys:String x:Key="t_tray_profile">Профиль</sys:String>

@@ -199,6 +199,12 @@
     <sys:String x:Key="t_updates_toast_title">Update {0} available</sys:String>
     <sys:String x:Key="t_updates_toast_update">Update</sys:String>
     <sys:String x:Key="t_updates_toast_close">Close</sys:String>
+    <!-- ============ Star prompt ============ -->
+    <sys:String x:Key="t_star_title">Star KeyForge on GitHub?</sys:String>
+    <sys:String x:Key="t_star_text">KeyForge is built by one author. If the configurator has been useful to you, star it on GitHub — it would mean a lot.</sys:String>
+    <sys:String x:Key="t_star_repo">zxchm0nya/KeyForge</sys:String>
+    <sys:String x:Key="t_star_btn">Star on GitHub</sys:String>
+
     <sys:String x:Key="t_tray_open">Open KeyForge</sys:String>
     <sys:String x:Key="t_tray_exit">Exit</sys:String>
     <sys:String x:Key="t_tray_profile">Profile</sys:String>

@@ -21,6 +21,9 @@ public class AppSettings
     public bool RememberLastDevice { get; set; } = true;
     public bool RememberLastConfig { get; set; } = true;
 
+    /// <summary>True once the one-time "star the repository" prompt has been shown.</summary>
+    public bool StarPromptShown { get; set; }
+
     /// <summary>Position of the navigation bar: "Left", "Top", "Right", "Bottom". Default is "Left".</summary>
     public string SidebarPosition { get; set; } = "Left";
 
@@ -81,6 +84,14 @@ public class AppSettings
     {
         try
         {
+            // Other views keep their own AppSettings snapshots. Once the
+            // one-time star prompt has been recorded, a later save from an
+            // older snapshot must not make it appear again.
+            if (!StarPromptShown)
+            {
+                var current = Load();
+                if (current.StarPromptShown) StarPromptShown = true;
+            }
             Directory.CreateDirectory(Dir);
             File.WriteAllText(FilePath, JsonSerializer.Serialize(this, Opts));
         }
